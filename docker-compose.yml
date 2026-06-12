@@ -1,0 +1,36 @@
+# hAI.WMPlan – Portainer Stack
+# Deployment: Portainer > Stacks > "Add stack" > "Repository" oder "Web editor"
+#
+# Variablen (optional in Portainer als Environment-Variables setzen):
+#   WM_PORT   – Host-Port (default: 8026)
+#   WM_TAG    – Image-Tag  (default: latest)
+
+services:
+  wmplan:
+    image: ghcr.io/jbkunama1/hai-wmplan:${WM_TAG:-latest}
+    # Alternativ lokal bauen (wenn kein Registry-Image vorhanden):
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    container_name: hai-wmplan
+    restart: unless-stopped
+    ports:
+      - "${WM_PORT:-8026}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      # Traefik (falls du Traefik als Reverse-Proxy nutzt)
+      - "traefik.enable=false"
+      # Portainer-Label für bessere Übersicht
+      - "com.docker.description=FIFA WM 2026 Turnierplan"
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+# Kein Volume nötig – localStorage läuft im Browser
