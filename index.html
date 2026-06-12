@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy"
-  content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src * data:; script-src 'self' 'unsafe-inline'; connect-src *;">
+  content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src * data:; script-src 'self' 'unsafe-inline'; connect-src https://worldcup26.ir;">
 <title>WM 2026 – Turnierplan</title>
 <link rel="icon" href="logo.png">
 <link rel="stylesheet"
@@ -295,12 +296,10 @@ const KICKOFFS = {
 };
 
 // ─── Live-Status (wird vom Polling befüllt) ──────────────────────────────────
-// LIVE_STATE[matchId] = { live: bool, minute: string|null, h: number, a: number }
 const LIVE_STATE = {};
 let pollTimer = null;
 let anyLive = false;
 
-// Spielzeit-Fenster: 15min vor bis 120min nach Anpfiff
 function isInLiveWindow(id){
   const ko = KICKOFFS[id]; if(!ko) return false;
   const t = new Date(ko), now = new Date();
@@ -331,10 +330,6 @@ function buildGM(){
   return m;
 }
 const GM=buildGM();
-
-// Mapping: interne match-id → API-match-id (worldcup26.ir gibt match_id 1–104)
-// Gruppenspiele haben dieselbe Nummerierung 1–72 (Annahme, ggf. nachpflegen)
-const GM_TO_API = {}; // befüllt dynamisch beim ersten API-Abruf
 
 const KO_ROUNDS=[
   {id:'r32',label:'Sechzehntelfinale',matches:[
@@ -412,9 +407,8 @@ function resetMatch(id){
 
 // ─── Live-Polling ──────────────────────────────────────────────────────────────
 const API_BASE = 'https://worldcup26.ir/get';
-const POLL_INTERVAL = 60000; // 60 Sekunden
+const POLL_INTERVAL = 60000;
 
-// Normiert Teamnamen auf interne IDs
 const NAME_MAP = {
   'Mexico':'mex','Korea Republic':'kor','Czech Republic':'cze','South Africa':'rsa',
   'Canada':'can','Bosnia and Herzegovina':'bih','Qatar':'qat','Switzerland':'sui',
@@ -436,34 +430,37 @@ async function fetchLiveScores(){
     const resp = await fetch(`${API_BASE}/games`, {cache:'no-store'});
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     const data = await resp.json();
-    const games = Array.isArray(data) ? data : (data.games || data.matches || []);
+    // FIX: robuster Array-Guard mit optionalem Chaining
+    const games = Array.isArray(data) ? data
+      : Array.isArray(data?.games) ? data.games
+      : Array.isArray(data?.matches) ? data.matches
+      : [];
     let hasLive = false;
 
     games.forEach(g=>{
-      // Status: 'live','ongoing','in_progress' = live; 'finished','completed','ended' = fertig
       const status = (g.status||g.match_status||'').toLowerCase();
       const isLive = status.includes('live')||status.includes('ongoing')||status.includes('in_progress')||status==='1h'||status==='2h'||status==='ht';
       const isFinished = status.includes('finish')||status.includes('complet')||status.includes('ended')||status==='ft'||status==='aet';
 
-      // Teamnamen normieren
       const hName = g.home_team||g.homeTeam||g.home||'';
       const aName = g.away_team||g.awayTeam||g.away||'';
       const hId = NAME_MAP[hName];
       const aId = NAME_MAP[aName];
       if(!hId||!aId) return;
 
-      // Internes Match finden
       const match = GM.find(m=>m.home===hId&&m.away===aId);
       if(!match) return;
       const mid = match.id;
 
       const hScore = parseInt(g.home_score??g.homeScore??g.score_home??-1,10);
       const aScore = parseInt(g.away_score??g.awayScore??g.score_away??-1,10);
-      const minute = g.minute||g.match_minute||g.elapsed||null;
+      // FIX: minute wird durch esc() gejagt bevor es in LIVE_STATE landet
+      const rawMinute = g.minute||g.match_minute||g.elapsed||null;
+      const minute = rawMinute ? esc(String(rawMinute)) : null;
 
       if(isLive){
         hasLive = true;
-        LIVE_STATE[mid] = {live:true, minute:minute?String(minute):null};
+        LIVE_STATE[mid] = {live:true, minute};
         if(hScore>=0&&aScore>=0){
           RES[String(mid)] = {h:hScore, a:aScore};
         }
@@ -488,7 +485,7 @@ async function fetchLiveScores(){
   } catch(err){
     if(statusEl){
       statusEl.className='api-status err';
-      statusEl.textContent=`⚠ API nicht erreichbar: ${err.message}`;
+      statusEl.textContent=`⚠ API nicht erreichbar: ${esc(err.message)}`;
     }
   }
 }
@@ -496,11 +493,10 @@ async function fetchLiveScores(){
 function startPolling(){
   const hasLiveWindow = Object.keys(KICKOFFS).some(id=>isInLiveWindow(Number(id)));
   if(hasLiveWindow){
-    fetchLiveScores(); // sofort
+    fetchLiveScores();
     clearInterval(pollTimer);
     pollTimer = setInterval(fetchLiveScores, POLL_INTERVAL);
   } else {
-    // kein Spiel im Fenster → nur alle 5min prüfen ob bald eins startet
     clearInterval(pollTimer);
     pollTimer = setInterval(()=>{
       if(Object.keys(KICKOFFS).some(id=>isInLiveWindow(Number(id)))){
@@ -687,14 +683,14 @@ function renderKO(){
           ${hName}
           <input class="ko-score-input" type="number" min="0" max="30" inputmode="numeric"
             value="${r.h!==''?r.h:''}" data-mid="${m.id}" data-side="h"
-            data-fk="k${m.id}h" ${unlocked?'':'disabled tabindex="-1""}>
+            data-fk="k${m.id}h" ${unlocked?'':'disabled tabindex="-1"'}>
           ${penH}
         </div>
         <div class="ko-team${aWin?' winner':''}">
           ${aName}
           <input class="ko-score-input" type="number" min="0" max="30" inputmode="numeric"
             value="${r.a!==''?r.a:''}" data-mid="${m.id}" data-side="a"
-            data-fk="k${m.id}a" ${unlocked?'':'disabled tabindex="-1""}>
+            data-fk="k${m.id}a" ${unlocked?'':'disabled tabindex="-1"'}>
           ${penA}
         </div>`;
       wrap.appendChild(div);
@@ -735,7 +731,7 @@ tb.addEventListener('click',()=>{
 });
 
 renderGroups();
-startPolling(); // Live-Polling sofort starten
+startPolling();
 </script>
 </body>
 </html>
