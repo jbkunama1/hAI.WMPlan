@@ -51,7 +51,7 @@ main{padding:16px;max-width:1400px;margin:0 auto}
 .standings tr.possible{background:rgba(88,166,255,.06)}
 .fi{width:20px;height:14px;border-radius:2px;margin-right:5px;vertical-align:middle;display:inline-block}
 .matches{padding:6px 0}
-.match-row{display:flex;align-items:center;gap:6px;padding:5px 12px;
+.match-row{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 12px;
   border-bottom:1px solid var(--border);font-size:12px}
 .match-row:last-child{border-bottom:none}
 .team-name{flex:1;display:flex;align-items:center;gap:4px}
@@ -61,6 +61,13 @@ main{padding:16px;max-width:1400px;margin:0 auto}
   color:var(--text);border-radius:4px;padding:3px 2px;font-size:13px;font-weight:700}
 .score-input:focus{outline:2px solid var(--accent);border-color:var(--accent)}
 .match-sep{color:var(--muted);font-weight:700}
+/* Reset-Button pro Spiel */
+.btn-reset-match{background:none;border:none;color:var(--muted);cursor:pointer;
+  font-size:13px;padding:2px 4px;border-radius:4px;line-height:1;flex-shrink:0;
+  transition:color .15s,background .15s}
+.btn-reset-match:hover{color:var(--red);background:rgba(248,81,73,.12)}
+.btn-reset-match:title{cursor:pointer}
+/* K.o. */
 .ko-wrap{overflow-x:auto;padding-bottom:16px}
 .bracket{display:flex;gap:0;align-items:stretch;min-width:860px}
 .round{display:flex;flex-direction:column;flex:1;min-width:152px}
@@ -71,7 +78,11 @@ main{padding:16px;max-width:1400px;margin:0 auto}
   padding:4px 0;border-right:1px solid var(--border)}
 .round:last-child .round-matches{border-right:1px solid var(--border)}
 .ko-match{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-  margin:4px 6px;overflow:hidden;font-size:11px}
+  margin:4px 6px;overflow:hidden;font-size:11px;position:relative}
+.ko-match-reset{position:absolute;top:2px;right:3px;background:none;border:none;
+  color:var(--muted);cursor:pointer;font-size:11px;padding:1px 3px;border-radius:3px;line-height:1;
+  transition:color .15s,background .15s}
+.ko-match-reset:hover{color:var(--red);background:rgba(248,81,73,.12)}
 .ko-team{display:flex;align-items:center;gap:5px;padding:5px 8px;border-bottom:1px solid var(--border)}
 .ko-team:last-child{border-bottom:none}
 .ko-team.winner{background:rgba(63,185,80,.14);font-weight:700}
@@ -99,7 +110,8 @@ main{padding:16px;max-width:1400px;margin:0 auto}
 .info-badge{font-size:11px;color:var(--muted);margin-left:auto}
 @media print{
   header,.tabs,.toolbar,.btn-theme,.overlay,
-  .score-input,.ko-score-input,.ko-pen-input{display:none!important}
+  .score-input,.ko-score-input,.ko-pen-input,
+  .btn-reset-match,.ko-match-reset{display:none!important}
   body{background:#fff;color:#000}
   .group-card,.ko-match{border:1px solid #ccc;break-inside:avoid}
   .groups-grid{grid-template-columns:repeat(3,1fr)}
@@ -252,6 +264,11 @@ function sp(id,side,val){
   RES[k]['p'+side]=val===''?'':Math.max(0,Math.min(20,parseInt(val,10)));
   save();
 }
+function resetMatch(id){
+  delete RES[String(id)];
+  save();
+  rerender();
+}
 function calcStandings(gid){
   const ids=GROUPS[gid],s={};
   ids.forEach(id=>{s[id]={id,pl:0,w:0,d:0,l:0,gf:0,ga:0,pts:0};});
@@ -323,6 +340,7 @@ function renderGroups(){
     }).join('');
     const mrows=GM.filter(m=>m.group===gid).map(m=>{
       const ht=TEAMS[m.home],at=TEAMS[m.away],r=gr(m.id);
+      const hasResult=r.h!==''||r.a!=='';
       return`<div class="match-row">
         <span class="team-name">${fl(ht.f)} ${esc(ht.n)}</span>
         <div class="score-wrap">
@@ -335,6 +353,8 @@ function renderGroups(){
             data-fk="g${m.id}a" aria-label="${esc(at.n)} Tore">
         </div>
         <span class="team-name right">${esc(at.n)} ${fl(at.f)}</span>
+        <button class="btn-reset-match" data-rmid="${m.id}" title="Ergebnis zurücksetzen"
+          style="${hasResult?'':'opacity:.25;pointer-events:none'}" aria-label="Ergebnis zurücksetzen">✕</button>
       </div>`;
     }).join('');
     const card=document.createElement('div');
@@ -347,6 +367,11 @@ function renderGroups(){
   APP.addEventListener('input',e=>{
     const el=e.target;if(!el.dataset.mid)return;
     sr(el.dataset.mid,el.dataset.side,el.value);schedSave();
+  });
+  APP.addEventListener('click',e=>{
+    const btn=e.target.closest('.btn-reset-match');
+    if(!btn)return;
+    resetMatch(btn.dataset.rmid);
   });
 }
 function renderKO(){
@@ -362,6 +387,7 @@ function renderKO(){
       const hId=resolve(m.home),aId=resolve(m.away);
       const hT=hId?TEAMS[hId]:null,aT=aId?TEAMS[aId]:null;
       const r=gr(m.id);
+      const hasResult=r.h!==''||r.a!=='';
       const isDraw=r.h!==''&&r.a!==''&&Number(r.h)===Number(r.a);
       const w=koWinner(m.id);
       const hWin=w&&w===hId,aWin=w&&w===aId;
@@ -371,6 +397,8 @@ function renderKO(){
       const penA=isDraw?`<input class="ko-pen-input" type="number" min="0" max="20" inputmode="numeric" value="${r.pa!==undefined&&r.pa!==''?r.pa:''}" data-mid="${m.id}" data-side="pa" data-fk="k${m.id}pa" aria-label="${esc(aT?.n||'TBD')} Elfmeter" title="Elfmeter">`:r.pa!==undefined&&r.pa!==''?`<span class="ko-pen">(${r.pa})</span>`:``;
       const div=document.createElement('div');div.className='ko-match';
       div.innerHTML=`
+        <button class="ko-match-reset" data-rmid="${m.id}" title="Ergebnis zurücksetzen"
+          style="${hasResult?'':'opacity:.2;pointer-events:none'}" aria-label="Ergebnis zurücksetzen">✕</button>
         <div class="ko-team${hWin?' winner':''}">
           ${hName}
           <input class="ko-score-input" type="number" min="0" max="30" inputmode="numeric"
@@ -395,6 +423,11 @@ function renderKO(){
       sp(el.dataset.mid,el.dataset.side==='ph'?'h':'a',el.value);
     }else{sr(el.dataset.mid,el.dataset.side,el.value);}
     schedSave();
+  });
+  br.addEventListener('click',e=>{
+    const btn=e.target.closest('.ko-match-reset');
+    if(!btn)return;
+    resetMatch(btn.dataset.rmid);
   });
 }
 function openModal(cb){
