@@ -1,182 +1,595 @@
-import { teams } from './data/teams.js';
-import { matches } from './data/matches.js';
+'use strict';
 
-const appEl = document.getElementById('app');
-const tabs = document.querySelectorAll('.tabs button');
-const STORAGE_KEY = 'wm2026_results';
-let results = loadResults();
+// ─── Konstanten ──────────────────────────────────────────────────────────────
+const THEME_KEY = 'wm2026_theme';
+const SKEY = 'wm2026v3';
+const API_BASE = 'https://worldcup26.ir/get';
+const POLL_INTERVAL = 60000;
 
-function loadResults() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
-}
-function saveResults() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
-}
+// ─── Mannschaften ────────────────────────────────────────────────────────────
+const TEAMS = {
+  mex:{n:'Mexiko',f:'mx'},       kor:{n:'Südkorea',f:'kr'},
+  cze:{n:'Tschechien',f:'cz'},   rsa:{n:'Südafrika',f:'za'},
+  can:{n:'Kanada',f:'ca'},       bih:{n:'Bosnien-H.',f:'ba'},
+  qat:{n:'Katar',f:'qa'},        sui:{n:'Schweiz',f:'ch'},
+  bra:{n:'Brasilien',f:'br'},    hai:{n:'Haiti',f:'ht'},
+  mar:{n:'Marokko',f:'ma'},      sco:{n:'Schottland',f:'gb-sct'},
+  usa:{n:'USA',f:'us'},          par:{n:'Paraguay',f:'py'},
+  tur:{n:'Türkei',f:'tr'},       aus:{n:'Australien',f:'au'},
+  ger:{n:'Deutschland',f:'de'},  cur:{n:'Curaçao',f:'cw'},
+  ecu:{n:'Ecuador',f:'ec'},      civ:{n:'Elfenbeinküste',f:'ci'},
+  ned:{n:'Niederlande',f:'nl'},  jpn:{n:'Japan',f:'jp'},
+  swe:{n:'Schweden',f:'se'},     tun:{n:'Tunesien',f:'tn'},
+  bel:{n:'Belgien',f:'be'},      egy:{n:'Ägypten',f:'eg'},
+  irn:{n:'Iran',f:'ir'},         nzl:{n:'Neuseeland',f:'nz'},
+  esp:{n:'Spanien',f:'es'},      ksa:{n:'Saudi-Arabien',f:'sa'},
+  cpv:{n:'Kap Verde',f:'cv'},    ury:{n:'Uruguay',f:'uy'},
+  fra:{n:'Frankreich',f:'fr'},   irq:{n:'Irak',f:'iq'},
+  nor:{n:'Norwegen',f:'no'},     sen:{n:'Sénégal',f:'sn'},
+  arg:{n:'Argentinien',f:'ar'},  alg:{n:'Algerien',f:'dz'},
+  aut:{n:'Österreich',f:'at'},   jor:{n:'Jordanien',f:'jo'},
+  por:{n:'Portugal',f:'pt'},     col:{n:'Kolumbien',f:'co'},
+  cod:{n:'DR Kongo',f:'cd'},     uzb:{n:'Usbekistan',f:'uz'},
+  eng:{n:'England',f:'gb-eng'},  cro:{n:'Kroatien',f:'hr'},
+  gha:{n:'Ghana',f:'gh'},        pan:{n:'Panama',f:'pa'},
+};
 
-function teamId(name) {
-  return name.toLowerCase().replace(/ /g,'_').replace(/ü/g,'u').replace(/ç/g,'c').replace(/ã/g,'a');
-}
+const GROUPS = {
+  A:['mex','kor','cze','rsa'], B:['can','bih','qat','sui'],
+  C:['bra','hai','mar','sco'], D:['usa','par','tur','aus'],
+  E:['ger','cur','ecu','civ'], F:['ned','jpn','swe','tun'],
+  G:['bel','egy','irn','nzl'], H:['esp','ksa','cpv','ury'],
+  I:['fra','irq','nor','sen'], J:['arg','alg','aut','jor'],
+  K:['por','col','cod','uzb'], L:['eng','cro','gha','pan'],
+};
 
-function getTeam(id) {
-  return teams.find(t => t.id === id);
-}
+const KICKOFFS = {
+  1:'2026-06-11T19:00', 2:'2026-06-12T19:00',
+  3:'2026-06-16T19:00', 4:'2026-06-16T22:00',
+  5:'2026-06-21T21:00', 6:'2026-06-21T21:00',
+  7:'2026-06-12T22:00', 8:'2026-06-13T21:00',
+  9:'2026-06-17T19:00', 10:'2026-06-17T22:00',
+  11:'2026-06-22T21:00',12:'2026-06-22T21:00',
+  13:'2026-06-14T00:00',14:'2026-06-14T03:00',
+  15:'2026-06-18T19:00',16:'2026-06-18T22:00',
+  17:'2026-06-23T21:00',18:'2026-06-23T21:00',
+  19:'2026-06-13T03:00',20:'2026-06-14T06:00',
+  21:'2026-06-18T00:00',22:'2026-06-18T03:00',
+  23:'2026-06-23T00:00',24:'2026-06-23T00:00',
+  25:'2026-06-14T19:00',26:'2026-06-15T01:00',
+  27:'2026-06-19T19:00',28:'2026-06-19T22:00',
+  29:'2026-06-24T21:00',30:'2026-06-24T21:00',
+  31:'2026-06-14T22:00',32:'2026-06-15T04:00',
+  33:'2026-06-19T00:00',34:'2026-06-19T04:00',
+  35:'2026-06-24T00:00',36:'2026-06-24T00:00',
+  37:'2026-06-15T21:00',38:'2026-06-16T03:00',
+  39:'2026-06-20T19:00',40:'2026-06-20T22:00',
+  41:'2026-06-25T21:00',42:'2026-06-25T21:00',
+  43:'2026-06-15T18:00',44:'2026-06-16T00:00',
+  45:'2026-06-20T19:00',46:'2026-06-20T22:00',
+  47:'2026-06-25T21:00',48:'2026-06-25T21:00',
+  49:'2026-06-16T21:00',50:'2026-06-17T00:00',
+  51:'2026-06-21T19:00',52:'2026-06-21T22:00',
+  53:'2026-06-26T21:00',54:'2026-06-26T21:00',
+  55:'2026-06-17T03:00',56:'2026-06-17T06:00',
+  57:'2026-06-21T19:00',58:'2026-06-21T22:00',
+  59:'2026-06-26T21:00',60:'2026-06-26T21:00',
+  61:'2026-06-17T19:00',62:'2026-06-18T04:00',
+  63:'2026-06-22T19:00',64:'2026-06-22T22:00',
+  65:'2026-06-27T21:00',66:'2026-06-27T21:00',
+  67:'2026-06-17T22:00',68:'2026-06-18T01:00',
+  69:'2026-06-22T19:00',70:'2026-06-22T22:00',
+  71:'2026-06-27T21:00',72:'2026-06-27T21:00',
+  201:'2026-06-29T21:00',202:'2026-06-29T21:00',
+  203:'2026-06-30T21:00',204:'2026-06-30T21:00',
+  205:'2026-07-01T21:00',206:'2026-07-01T21:00',
+  207:'2026-07-02T21:00',208:'2026-07-02T21:00',
+  209:'2026-06-30T00:00',210:'2026-06-30T03:00',
+  211:'2026-07-01T00:00',212:'2026-07-01T03:00',
+  213:'2026-07-02T00:00',214:'2026-07-02T03:00',
+  215:'2026-07-03T00:00',216:'2026-07-03T03:00',
+  301:'2026-07-05T21:00',302:'2026-07-05T00:00',
+  303:'2026-07-06T21:00',304:'2026-07-06T00:00',
+  305:'2026-07-07T21:00',306:'2026-07-07T00:00',
+  307:'2026-07-08T21:00',308:'2026-07-08T00:00',
+  401:'2026-07-11T21:00',402:'2026-07-11T00:00',
+  403:'2026-07-12T21:00',404:'2026-07-12T00:00',
+  501:'2026-07-15T21:00',502:'2026-07-16T21:00',
+  601:'2026-07-19T21:00',701:'2026-07-19T21:00',
+};
 
-function calcStandings(groupTeams, groupMatches) {
-  const stats = {};
-  groupTeams.forEach(t => {
-    stats[t.id] = { ...t, played:0, points:0, goalsFor:0, goalsAgainst:0, goalDiff:0 };
+const NAME_MAP = {
+  'Mexico':'mex','Korea Republic':'kor','Czech Republic':'cze','South Africa':'rsa',
+  'Canada':'can','Bosnia and Herzegovina':'bih','Qatar':'qat','Switzerland':'sui',
+  'Brazil':'bra','Haiti':'hai','Morocco':'mar','Scotland':'sco',
+  'United States':'usa','Paraguay':'par','Turkey':'tur','Australia':'aus',
+  'Germany':'ger','Curacao':'cur','Ecuador':'ecu',"Cote d'Ivoire":'civ',
+  'Netherlands':'ned','Japan':'jpn','Sweden':'swe','Tunisia':'tun',
+  'Belgium':'bel','Egypt':'egy','Iran':'irn','New Zealand':'nzl',
+  'Spain':'esp','Saudi Arabia':'ksa','Cape Verde':'cpv','Uruguay':'ury',
+  'France':'fra','Iraq':'irq','Norway':'nor','Senegal':'sen',
+  'Argentina':'arg','Algeria':'alg','Austria':'aut','Jordan':'jor',
+  'Portugal':'por','Colombia':'col','DR Congo':'cod','Uzbekistan':'uzb',
+  'England':'eng','Croatia':'cro','Ghana':'gha','Panama':'pan',
+};
+
+// ─── K.o.-Runden ─────────────────────────────────────────────────────────────
+const KO_ROUNDS = [
+  {id:'r32',label:'Sechzehntelfinale',matches:[
+    {id:201,home:{src:'grp',g:'A',p:1},away:{src:'grp',g:'C',p:2}},
+    {id:202,home:{src:'grp',g:'B',p:1},away:{src:'grp',g:'D',p:2}},
+    {id:203,home:{src:'grp',g:'C',p:1},away:{src:'grp',g:'A',p:2}},
+    {id:204,home:{src:'grp',g:'D',p:1},away:{src:'grp',g:'B',p:2}},
+    {id:205,home:{src:'grp',g:'E',p:1},away:{src:'grp',g:'G',p:2}},
+    {id:206,home:{src:'grp',g:'F',p:1},away:{src:'grp',g:'H',p:2}},
+    {id:207,home:{src:'grp',g:'G',p:1},away:{src:'grp',g:'E',p:2}},
+    {id:208,home:{src:'grp',g:'H',p:1},away:{src:'grp',g:'F',p:2}},
+    {id:209,home:{src:'grp',g:'I',p:1},away:{src:'grp',g:'K',p:2}},
+    {id:210,home:{src:'grp',g:'J',p:1},away:{src:'grp',g:'L',p:2}},
+    {id:211,home:{src:'grp',g:'K',p:1},away:{src:'grp',g:'I',p:2}},
+    {id:212,home:{src:'grp',g:'L',p:1},away:{src:'grp',g:'J',p:2}},
+    {id:213,home:{src:'b3',s:0},away:{src:'b3',s:1}},
+    {id:214,home:{src:'b3',s:2},away:{src:'b3',s:3}},
+    {id:215,home:{src:'b3',s:4},away:{src:'b3',s:5}},
+    {id:216,home:{src:'b3',s:6},away:{src:'b3',s:7}},
+  ]},
+  {id:'r16',label:'Achtelfinale',matches:[
+    {id:301,home:{src:'ko',m:201},away:{src:'ko',m:202}},
+    {id:302,home:{src:'ko',m:203},away:{src:'ko',m:204}},
+    {id:303,home:{src:'ko',m:205},away:{src:'ko',m:206}},
+    {id:304,home:{src:'ko',m:207},away:{src:'ko',m:208}},
+    {id:305,home:{src:'ko',m:209},away:{src:'ko',m:210}},
+    {id:306,home:{src:'ko',m:211},away:{src:'ko',m:212}},
+    {id:307,home:{src:'ko',m:213},away:{src:'ko',m:214}},
+    {id:308,home:{src:'ko',m:215},away:{src:'ko',m:216}},
+  ]},
+  {id:'qf',label:'Viertelfinale',matches:[
+    {id:401,home:{src:'ko',m:301},away:{src:'ko',m:302}},
+    {id:402,home:{src:'ko',m:303},away:{src:'ko',m:304}},
+    {id:403,home:{src:'ko',m:305},away:{src:'ko',m:306}},
+    {id:404,home:{src:'ko',m:307},away:{src:'ko',m:308}},
+  ]},
+  {id:'sf',label:'Halbfinale',matches:[
+    {id:501,home:{src:'ko',m:401},away:{src:'ko',m:402}},
+    {id:502,home:{src:'ko',m:403},away:{src:'ko',m:404}},
+  ]},
+  {id:'3rd',label:'Platz 3',matches:[
+    {id:601,home:{src:'los',m:501},away:{src:'los',m:502}},
+  ]},
+  {id:'fin',label:'🏆 Finale',matches:[
+    {id:701,home:{src:'ko',m:501},away:{src:'ko',m:502}},
+  ]},
+];
+
+// ─── Spielplan aufbauen ───────────────────────────────────────────────────────
+function buildGM() {
+  const m = []; let id = 1;
+  Object.entries(GROUPS).forEach(([g, t]) => {
+    [[0,1],[2,3],[0,2],[1,3],[0,3],[1,2]].forEach(([a,b]) =>
+      m.push({id:id++,stage:'group',group:g,home:t[a],away:t[b]}));
   });
-  groupMatches.forEach(m => {
-    const res = results[String(m.id)];
-    if (!res || res.home === '' || res.away === '') return;
-    const h = stats[m.home], a = stats[m.away];
-    if (!h || !a) return;
-    h.played++; a.played++;
-    h.goalsFor += +res.home; h.goalsAgainst += +res.away;
-    a.goalsFor += +res.away; a.goalsAgainst += +res.home;
-    if (+res.home > +res.away) { h.points += 3; }
-    else if (+res.home < +res.away) { a.points += 3; }
-    else { h.points += 1; a.points += 1; }
-  });
-  Object.values(stats).forEach(t => { t.goalDiff = t.goalsFor - t.goalsAgainst; });
-  return Object.values(stats).sort((a,b) => {
-    if (b.points !== a.points) return b.points - a.points;
-    if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
-    return b.goalsFor - a.goalsFor;
-  });
+  return m;
+}
+const GM = buildGM();
+
+// ─── Storage ──────────────────────────────────────────────────────────────────
+let RES = {};
+function load() { try { const r = localStorage.getItem(SKEY); RES = r ? JSON.parse(r) : {}; } catch(e) { RES = {}; } }
+function save() { try { localStorage.setItem(SKEY, JSON.stringify(RES)); } catch(e) {} }
+load();
+
+// ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fl(code) { return `<span class="fi fi-${esc(code)}"></span>`; }
+function gr(id)   { return RES[String(id)] || {h:'',a:''}; }
+
+function sr(id, side, val) {
+  if (!isUnlocked(id)) return;
+  const k = String(id); if (!RES[k]) RES[k] = {h:'',a:''};
+  RES[k][side] = val === '' ? '' : Math.max(0, Math.min(30, parseInt(val, 10)));
+  save();
+}
+function sp(id, side, val) {
+  if (!isUnlocked(id)) return;
+  const k = String(id); if (!RES[k]) RES[k] = {h:'',a:''};
+  RES[k]['p'+side] = val === '' ? '' : Math.max(0, Math.min(20, parseInt(val, 10)));
+  save();
+}
+function resetMatch(id) {
+  if (!isUnlocked(id)) return;
+  delete RES[String(id)]; save(); rerender();
 }
 
-function flagEl(flagCode) {
-  const sp = document.createElement('span');
-  sp.className = `fi fi-${flagCode}`;
-  sp.style.marginRight = '4px';
-  return sp;
+function scorePrint(val)  { return `<span class="score-print">${val !== '' ? esc(String(val)) : '-'}</span>`; }
+function koScorePrint(val){ return `<span class="ko-score-print">${val !== '' ? esc(String(val)) : '-'}</span>`; }
+
+// ─── Kickoff-Hilfsfunktionen ──────────────────────────────────────────────────
+function isInLiveWindow(id) {
+  const ko = KICKOFFS[id]; if (!ko) return false;
+  const t = new Date(ko), now = new Date();
+  return now >= new Date(t.getTime() - 15*60*1000) && now <= new Date(t.getTime() + 120*60*1000);
 }
+function isUnlocked(id) {
+  const ko = KICKOFFS[id]; if (!ko) return true;
+  return new Date() >= new Date(ko);
+}
+function fmtKickoff(id) {
+  const ko = KICKOFFS[id]; if (!ko) return '';
+  const d = new Date(ko);
+  return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}. ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function isToday(id) {
+  const ko = KICKOFFS[id]; if (!ko) return false;
+  const d = new Date(ko), n = new Date();
+  return d.getFullYear()===n.getFullYear() && d.getMonth()===n.getMonth() && d.getDate()===n.getDate();
+}
+
+// ─── Live-Polling ─────────────────────────────────────────────────────────────
+const LIVE_STATE = {};
+let pollTimer = null;
+let anyLive = false;
+
+async function fetchLiveScores() {
+  const statusEl = document.getElementById('apiStatus');
+  try {
+    const resp = await fetch(`${API_BASE}/games`, {cache:'no-store'});
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    const games = Array.isArray(data) ? data
+      : Array.isArray(data?.games)   ? data.games
+      : Array.isArray(data?.matches) ? data.matches
+      : [];
+    let hasLive = false;
+
+    games.forEach(g => {
+      const status = (g.status || g.match_status || '').toLowerCase();
+      const isLive     = status.includes('live') || status.includes('ongoing') || status.includes('in_progress') || status==='1h' || status==='2h' || status==='ht';
+      const isFinished = status.includes('finish') || status.includes('complet') || status.includes('ended') || status==='ft' || status==='aet';
+
+      const hName = g.home_team || g.homeTeam || g.home || '';
+      const aName = g.away_team || g.awayTeam || g.away || '';
+      const hId = NAME_MAP[hName], aId = NAME_MAP[aName];
+      if (!hId || !aId) return;
+
+      const match = GM.find(m => m.home === hId && m.away === aId);
+      if (!match) return;
+      const mid = match.id;
+
+      const hScore = parseInt(g.home_score ?? g.homeScore ?? g.score_home ?? -1, 10);
+      const aScore = parseInt(g.away_score ?? g.awayScore ?? g.score_away ?? -1, 10);
+      const rawMinute = g.minute || g.match_minute || g.elapsed || null;
+      const minute = rawMinute ? esc(String(rawMinute)) : null;
+
+      if (isLive) {
+        hasLive = true;
+        LIVE_STATE[mid] = {live:true, minute};
+        if (hScore >= 0 && aScore >= 0) RES[String(mid)] = {h:hScore, a:aScore};
+      } else if (isFinished) {
+        LIVE_STATE[mid] = {live:false, minute:null};
+        if (hScore >= 0 && aScore >= 0) RES[String(mid)] = {h:hScore, a:aScore};
+      }
+    });
+
+    save();
+    anyLive = hasLive;
+    document.getElementById('liveBadge')?.classList.toggle('visible', hasLive);
+    if (statusEl) {
+      const now = new Date();
+      statusEl.className = 'api-status ok';
+      statusEl.textContent = `⟳ Letzter API-Abruf: ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')} · worldcup26.ir`;
+    }
+    rerender();
+  } catch(err) {
+    if (statusEl) {
+      statusEl.className = 'api-status err';
+      statusEl.textContent = `⚠ API nicht erreichbar: ${esc(err.message)}`;
+    }
+  }
+}
+
+function startPolling() {
+  const hasLiveWindow = Object.keys(KICKOFFS).some(id => isInLiveWindow(Number(id)));
+  if (hasLiveWindow) {
+    fetchLiveScores();
+    clearInterval(pollTimer);
+    pollTimer = setInterval(fetchLiveScores, POLL_INTERVAL);
+  } else {
+    clearInterval(pollTimer);
+    pollTimer = setInterval(() => {
+      if (Object.keys(KICKOFFS).some(id => isInLiveWindow(Number(id)))) {
+        fetchLiveScores();
+        clearInterval(pollTimer);
+        pollTimer = setInterval(fetchLiveScores, POLL_INTERVAL);
+      }
+    }, 5 * 60 * 1000);
+  }
+}
+
+// ─── Standings & K.o.-Logik ───────────────────────────────────────────────────
+function calcStandings(gid) {
+  const ids = GROUPS[gid], s = {};
+  ids.forEach(id => { s[id] = {id,pl:0,w:0,d:0,l:0,gf:0,ga:0,pts:0}; });
+  GM.filter(m => m.group === gid).forEach(m => {
+    const r = gr(m.id); if (r.h==='' || r.a==='') return;
+    const hg = Number(r.h), ag = Number(r.a);
+    s[m.home].pl++; s[m.away].pl++;
+    s[m.home].gf += hg; s[m.home].ga += ag;
+    s[m.away].gf += ag; s[m.away].ga += hg;
+    if (hg > ag)      { s[m.home].pts += 3; s[m.home].w++; s[m.away].l++; }
+    else if (hg < ag) { s[m.away].pts += 3; s[m.away].w++; s[m.home].l++; }
+    else              { s[m.home].pts++; s[m.home].d++; s[m.away].pts++; s[m.away].d++; }
+  });
+  Object.values(s).forEach(t => { t.gd = t.gf - t.ga; });
+  return Object.values(s).sort((a,b) => b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
+}
+function teamFromGroup(g, pos) { return calcStandings(g)[pos-1]?.id || null; }
+function best8Third() {
+  return Object.keys(GROUPS)
+    .map(g => { const st = calcStandings(g); return st[2] ? {...st[2], g} : null; })
+    .filter(Boolean)
+    .sort((a,b) => b.pts-a.pts || b.gd-a.gd || b.gf-a.gf)
+    .slice(0,8).map(t => t.id);
+}
+function resolve(src) {
+  if (!src) return null;
+  if (src.src === 'grp') return teamFromGroup(src.g, src.p);
+  if (src.src === 'b3')  return best8Third()[src.s] || null;
+  if (src.src === 'ko')  return koWinner(src.m);
+  if (src.src === 'los') return koLoser(src.m);
+  return null;
+}
+function findKOM(id) {
+  for (const r of KO_ROUNDS) { const m = r.matches.find(x => x.id === id); if (m) return m; }
+  return null;
+}
+function koWinner(id) {
+  const r = gr(id); if (r.h==='' || r.a==='') return null;
+  const m = findKOM(id); if (!m) return null;
+  const h = resolve(m.home), a = resolve(m.away);
+  if (Number(r.h) > Number(r.a)) return h;
+  if (Number(r.h) < Number(r.a)) return a;
+  if (r.ph !== undefined && r.pa !== undefined && r.ph !== '' && r.pa !== '')
+    return Number(r.ph) > Number(r.pa) ? h : a;
+  return null;
+}
+function koLoser(id) {
+  const w = koWinner(id); if (!w) return null;
+  const m = findKOM(id); if (!m) return null;
+  const h = resolve(m.home), a = resolve(m.away);
+  return w === h ? a : h;
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+const APP = document.getElementById('app');
+let curTab = 'groups', focKey = null, saveTimer = null;
+
+function rerender() {
+  focKey = document.activeElement?.dataset?.fk || null;
+  curTab === 'groups' ? renderGroups() : renderKO();
+  if (focKey) { const el = document.querySelector(`[data-fk="${focKey}"]`); if (el) el.focus(); }
+}
+function schedSave() { clearTimeout(saveTimer); saveTimer = setTimeout(() => rerender(), 0); }
 
 function renderGroups() {
-  appEl.innerHTML = '';
-  appEl.style.display = 'grid';
-  const groups = [...new Set(teams.map(t => t.group))].sort();
-  groups.forEach(groupId => {
-    const groupTeams = teams.filter(t => t.group === groupId);
-    const groupMatches = matches.filter(m => m.stage === 'group' && m.group === groupId);
-    const section = document.createElement('section');
-    section.className = 'group';
-    const h2 = document.createElement('h2');
-    h2.textContent = `Gruppe ${groupId}`;
-    section.appendChild(h2);
-    // Tabelle
-    const table = document.createElement('table');
-    const thead = table.createTHead();
-    const hr = thead.insertRow();
-    ['Team','Sp','Pkt','Tore','Diff'].forEach(txt => { const th = document.createElement('th'); th.textContent = txt; hr.appendChild(th); });
-    const tbody = table.createTBody();
-    calcStandings(groupTeams, groupMatches).forEach((t,i) => {
-      const tr = tbody.insertRow();
-      const tdTeam = tr.insertCell();
-      tdTeam.style.fontWeight = i < 2 ? 'bold' : 'normal';
-      tdTeam.appendChild(flagEl(t.flagCode));
-      tdTeam.appendChild(document.createTextNode(t.name));
-      [t.played, t.points, `${t.goalsFor}:${t.goalsAgainst}`, t.goalDiff].forEach(v => {
-        const td = tr.insertCell(); td.textContent = v;
-      });
-    });
-    section.appendChild(table);
-    // Spiele
-    groupMatches.forEach(m => {
-      const home = getTeam(m.home);
-      const away = getTeam(m.away);
-      if (!home || !away) return;
-      const res = results[String(m.id)] || { home:'', away:'' };
-      const row = document.createElement('div');
-      row.className = 'match-row';
-      const hn = document.createElement('span'); hn.className = 'team-name';
-      hn.appendChild(flagEl(home.flagCode)); hn.appendChild(document.createTextNode(home.name));
-      const sep = document.createElement('span'); sep.className = 'sep'; sep.textContent = ':';
-      const hi = document.createElement('input'); hi.type='number'; hi.min='0'; hi.value=res.home; hi.dataset.match=m.id; hi.dataset.side='home';
-      const ai = document.createElement('input'); ai.type='number'; ai.min='0'; ai.value=res.away; ai.dataset.match=m.id; ai.dataset.side='away';
-      const an = document.createElement('span'); an.className = 'away-name';
-      an.appendChild(flagEl(away.flagCode)); an.appendChild(document.createTextNode(away.name));
-      row.appendChild(hn); row.appendChild(hi); row.appendChild(sep); row.appendChild(ai); row.appendChild(an);
-      section.appendChild(row);
-    });
-    appEl.appendChild(section);
+  APP.innerHTML = `
+    <div class="toolbar">
+      <button class="btn btn-cancel" id="btnReset">🗑 Alle Ergebnisse löschen</button>
+      <span class="info-badge">🔒 = noch nicht angepfiffen · 🔴 LIVE = automatischer Abruf läuft</span>
+    </div>
+    <div class="groups-grid" id="gg"></div>`;
+  document.getElementById('btnReset').addEventListener('click', () =>
+    openModal(() => { RES = {}; save(); rerender(); }));
+  const grid = document.getElementById('gg');
+
+  Object.keys(GROUPS).forEach(gid => {
+    const st = calcStandings(gid);
+    const rows = st.map((t,i) => {
+      const T = TEAMS[t.id], cls = i < 2 ? 'qualified' : i === 2 ? 'possible' : '';
+      return `<tr class="${cls}"><td>${fl(T.f)} ${esc(T.n)}</td><td>${t.pl}</td><td>${t.pts}</td><td>${t.gf}:${t.ga}</td><td>${t.gd > 0 ? '+' : ''}${t.gd}</td></tr>`;
+    }).join('');
+
+    const mrows = GM.filter(m => m.group === gid).map(m => {
+      const ht = TEAMS[m.home], at = TEAMS[m.away], r = gr(m.id);
+      const unlocked = isUnlocked(m.id);
+      const live = LIVE_STATE[m.id]?.live;
+      const minute = LIVE_STATE[m.id]?.minute;
+      const today = isToday(m.id);
+      const hasResult = r.h !== '' || r.a !== '';
+      const ko = fmtKickoff(m.id);
+      let koLabel;
+      if (live)           koLabel = `<span class="live-label">🔴 LIVE${minute ? ' '+minute+"'" : ''}</span>`;
+      else if (!unlocked) koLabel = `<span class="match-kickoff">🔒 ${ko}</span>`;
+      else if (today)     koLabel = `<span class="match-kickoff today">▶ heute ${ko}</span>`;
+      else                koLabel = '';
+      const rowCls = ['match-row', !unlocked?'locked':'', live?'live-now':'', today&&!live?'today':''].filter(Boolean).join(' ');
+      return `<div class="${rowCls}">
+        <span class="team-name">${fl(ht.f)} ${esc(ht.n)}</span>
+        <div class="score-wrap">
+          <input class="score-input" type="number" min="0" max="30" inputmode="numeric" pattern="[0-9]*"
+            value="${r.h!==''?r.h:''}" data-mid="${m.id}" data-side="h"
+            data-fk="g${m.id}h" aria-label="${esc(ht.n)} Tore"
+            ${unlocked?'':'disabled tabindex="-1" title="Spiel noch nicht angepfiffen"'}>${scorePrint(r.h)}
+          <span class="match-sep">:</span>
+          <input class="score-input" type="number" min="0" max="30" inputmode="numeric" pattern="[0-9]*"
+            value="${r.a!==''?r.a:''}" data-mid="${m.id}" data-side="a"
+            data-fk="g${m.id}a" aria-label="${esc(at.n)} Tore"
+            ${unlocked?'':'disabled tabindex="-1" title="Spiel noch nicht angepfiffen"'}>${scorePrint(r.a)}
+        </div>
+        <span class="team-name right">${esc(at.n)} ${fl(at.f)}</span>
+        ${koLabel}
+        <button class="btn-reset-match" data-rmid="${m.id}" title="Ergebnis zurücksetzen"
+          style="${hasResult&&unlocked?'':'opacity:.25;pointer-events:none'}" aria-label="Ergebnis zurücksetzen">✕</button>
+      </div>`;
+    }).join('');
+
+    const card = document.createElement('div');
+    card.className = 'group-card';
+    card.innerHTML = `<h2>Gruppe ${gid}</h2>
+      <table class="standings"><thead><tr><th>Team</th><th>Sp</th><th>Pkt</th><th>Tore</th><th>+/-</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+      <div class="matches">${mrows}</div>`;
+    grid.appendChild(card);
   });
-  appEl.addEventListener('change', onScoreChange);
-}
 
-function onScoreChange(e) {
-  const input = e.target;
-  if (input.tagName !== 'INPUT') return;
-  const matchId = input.dataset.match;
-  const side = input.dataset.side;
-  if (!results[matchId]) results[matchId] = { home:'', away:'' };
-  results[matchId][side] = input.value === '' ? '' : parseInt(input.value,10);
-  saveResults();
-  switchView('groups');
-}
-
-function renderKnockout() {
-  appEl.innerHTML = '';
-  appEl.style.display = 'block';
-  const container = document.createElement('div');
-  container.id = 'knockout-view';
-  const roundNames = {
-    'round_of_32': 'Runde der 32',
-    'round_of_16': 'Achtelfinale',
-    'quarter_final': 'Viertelfinale',
-    'semi_final': 'Halbfinale',
-    'third_place': 'Spiel um Platz 3',
-    'final': 'Finale'
-  };
-  const stages = ['round_of_32','round_of_16','quarter_final','semi_final','third_place','final'];
-  stages.forEach(stage => {
-    const stageMatches = matches.filter(m => m.stage === stage);
-    if (!stageMatches.length) return;
-    const col = document.createElement('div');
-    col.className = 'ko-round';
-    const h3 = document.createElement('h3');
-    h3.textContent = roundNames[stage] || stage;
-    col.appendChild(h3);
-    stageMatches.forEach(m => {
-      const box = document.createElement('div');
-      box.className = 'ko-match';
-      const homeTeam = getTeam(m.home);
-      const awayTeam = getTeam(m.away);
-      const res = results[String(m.id)] || { home:'', away:'' };
-      const makeRow = (team, side, val) => {
-        const row = document.createElement('div'); row.className = 'ko-team';
-        if (team) { row.appendChild(flagEl(team.flagCode)); row.appendChild(document.createTextNode(team.name)); }
-        else { row.appendChild(document.createTextNode(m[side])); }
-        const inp = document.createElement('input'); inp.type='number'; inp.min='0'; inp.value=val; inp.dataset.match=m.id; inp.dataset.side=side;
-        row.appendChild(inp);
-        return row;
-      };
-      box.appendChild(makeRow(homeTeam,'home',res.home));
-      box.appendChild(makeRow(awayTeam,'away',res.away));
-      col.appendChild(box);
-    });
-    container.appendChild(col);
+  APP.addEventListener('input', e => {
+    const el = e.target; if (!el.dataset.mid) return;
+    sr(el.dataset.mid, el.dataset.side, el.value); schedSave();
   });
-  appEl.appendChild(container);
-  appEl.addEventListener('change', onKoScoreChange);
+  APP.addEventListener('click', e => {
+    const btn = e.target.closest('.btn-reset-match'); if (!btn) return;
+    resetMatch(btn.dataset.rmid);
+  });
 }
 
-function onKoScoreChange(e) {
-  const input = e.target;
-  if (input.tagName !== 'INPUT') return;
-  const matchId = input.dataset.match;
-  const side = input.dataset.side;
-  if (!results[matchId]) results[matchId] = { home:'', away:'' };
-  results[matchId][side] = input.value === '' ? '' : parseInt(input.value,10);
-  saveResults();
+function renderKO() {
+  APP.innerHTML = `<div class="toolbar">
+    <span class="info-badge">🟩 Sieger · ⚽ Elfmeter · 🔴 Live-Update · 🔒 Gesperrt</span>
+  </div><div class="ko-wrap"><div class="bracket" id="br"></div></div>`;
+  const br = document.getElementById('br');
+
+  KO_ROUNDS.forEach(rnd => {
+    const col = document.createElement('div'); col.className = 'round';
+    col.innerHTML = `<div class="round-header">${esc(rnd.label)}</div>`;
+    const wrap = document.createElement('div'); wrap.className = 'round-matches';
+
+    rnd.matches.forEach(m => {
+      const hId = resolve(m.home), aId = resolve(m.away);
+      const hT = hId ? TEAMS[hId] : null, aT = aId ? TEAMS[aId] : null;
+      const r = gr(m.id);
+      const unlocked = isUnlocked(m.id);
+      const live = LIVE_STATE[m.id]?.live;
+      const minute = LIVE_STATE[m.id]?.minute;
+      const today = isToday(m.id);
+      const hasResult = r.h !== '' || r.a !== '';
+      const isDraw = r.h !== '' && r.a !== '' && Number(r.h) === Number(r.a);
+      const w = koWinner(m.id);
+      const hWin = w && w === hId, aWin = w && w === aId;
+      const hName = hT ? `${fl(hT.f)} ${esc(hT.n)}` : `<span class="tbd">TBD</span>`;
+      const aName = aT ? `${fl(aT.f)} ${esc(aT.n)}` : `<span class="tbd">TBD</span>`;
+      const penH = isDraw
+        ? `<input class="ko-pen-input" type="number" min="0" max="20" inputmode="numeric" pattern="[0-9]*" value="${r.ph!==undefined&&r.ph!==''?r.ph:''}" data-mid="${m.id}" data-side="ph" data-fk="k${m.id}ph" aria-label="Elfmeter">`
+        : r.ph !== undefined && r.ph !== '' ? `<span class="ko-pen">(${r.ph})</span>` : '';
+      const penA = isDraw
+        ? `<input class="ko-pen-input" type="number" min="0" max="20" inputmode="numeric" pattern="[0-9]*" value="${r.pa!==undefined&&r.pa!==''?r.pa:''}" data-mid="${m.id}" data-side="pa" data-fk="k${m.id}pa" aria-label="Elfmeter">`
+        : r.pa !== undefined && r.pa !== '' ? `<span class="ko-pen">(${r.pa})</span>` : '';
+      const koStr = fmtKickoff(m.id);
+      let koBar;
+      if (live)       koBar = `<div class="ko-kickoff today">🔴 LIVE${minute?' '+minute+"'":''}</div>`;
+      else if (koStr) koBar = `<div class="ko-kickoff${today?' today':''}">${unlocked?(today?'▶ heute '+koStr:koStr):'🔒 '+koStr}</div>`;
+      else            koBar = '';
+
+      const div = document.createElement('div');
+      div.className = `ko-match${unlocked?'':' locked'}${live?' live-now':''}`;
+      div.innerHTML = `
+        ${koBar}
+        <button class="ko-match-reset" data-rmid="${m.id}" title="Ergebnis zurücksetzen"
+          style="${hasResult&&unlocked?'':'opacity:.2;pointer-events:none'}">✕</button>
+        <div class="ko-team${hWin?' winner':''}">
+          ${hName}
+          <input class="ko-score-input" type="number" min="0" max="30" inputmode="numeric" pattern="[0-9]*"
+            value="${r.h!==''?r.h:''}" data-mid="${m.id}" data-side="h"
+            data-fk="k${m.id}h" ${unlocked?'':'disabled tabindex="-1"'}>${koScorePrint(r.h)}
+          ${penH}
+        </div>
+        <div class="ko-team${aWin?' winner':''}">
+          ${aName}
+          <input class="ko-score-input" type="number" min="0" max="30" inputmode="numeric" pattern="[0-9]*"
+            value="${r.a!==''?r.a:''}" data-mid="${m.id}" data-side="a"
+            data-fk="k${m.id}a" ${unlocked?'':'disabled tabindex="-1"'}>${koScorePrint(r.a)}
+          ${penA}
+        </div>`;
+      wrap.appendChild(div);
+    });
+    col.appendChild(wrap); br.appendChild(col);
+  });
+
+  br.addEventListener('input', e => {
+    const el = e.target; if (!el.dataset.mid) return;
+    if (el.dataset.side === 'ph' || el.dataset.side === 'pa')
+      sp(el.dataset.mid, el.dataset.side === 'ph' ? 'h' : 'a', el.value);
+    else
+      sr(el.dataset.mid, el.dataset.side, el.value);
+    schedSave();
+  });
+  br.addEventListener('click', e => {
+    const btn = e.target.closest('.ko-match-reset'); if (!btn) return;
+    resetMatch(btn.dataset.rmid);
+  });
 }
 
-function switchView(view) {
-  tabs.forEach(btn => btn.classList.toggle('active', btn.dataset.view === view));
-  if (view === 'groups') renderGroups();
-  else renderKnockout();
+function openModal(cb) {
+  const ov = document.getElementById('overlay');
+  const cn = document.getElementById('modalCancel');
+  const cf = document.getElementById('modalConfirm');
+  ov.classList.add('open'); cf.focus();
+  function close() {
+    ov.classList.remove('open');
+    cn.removeEventListener('click', onNo);
+    cf.removeEventListener('click', onYes);
+    document.removeEventListener('keydown', onKey);
+  }
+  function onYes() { close(); cb(); }
+  function onNo()  { close(); }
+  function onKey(e) { if (e.key === 'Escape') close(); }
+  cf.addEventListener('click', onYes, {once:true});
+  cn.addEventListener('click', onNo,  {once:true});
+  document.addEventListener('keydown', onKey);
 }
 
-tabs.forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.view)));
-switchView('groups');
+// ─── PWA: Service Worker registrieren ─────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('[PWA] SW registriert:', reg.scope))
+      .catch(err => console.warn('[PWA] SW Fehler:', err));
+  });
+}
+
+// ─── PWA: Install-Banner ───────────────────────────────────────────────────────
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const banner = document.getElementById('installBanner');
+  if (banner) banner.classList.add('visible');
+});
+document.getElementById('installBtn')?.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('installBanner')?.classList.remove('visible');
+  console.log('[PWA] Install outcome:', outcome);
+});
+document.getElementById('closeBanner')?.addEventListener('click', () => {
+  document.getElementById('installBanner')?.classList.remove('visible');
+});
+
+// ─── Theme ────────────────────────────────────────────────────────────────────
+(function() {
+  const saved = localStorage.getItem(THEME_KEY) || 'dark';
+  document.body.dataset.theme = saved;
+  const btn = document.getElementById('themeBtn');
+  if (btn) btn.textContent = saved === 'dark' ? '🌙' : '☀️';
+})();
+
+document.getElementById('themeBtn')?.addEventListener('click', () => {
+  const isDark = document.body.dataset.theme === 'dark';
+  const newTheme = isDark ? 'light' : 'dark';
+  document.body.dataset.theme = newTheme;
+  document.getElementById('themeBtn').textContent = isDark ? '☀️' : '🌙';
+  localStorage.setItem(THEME_KEY, newTheme);
+});
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  t.classList.add('active'); curTab = t.dataset.tab; rerender();
+}));
+
+// ─── Start ────────────────────────────────────────────────────────────────────
+renderGroups();
+startPolling();
