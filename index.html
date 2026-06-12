@@ -6,7 +6,7 @@
 <meta http-equiv="Content-Security-Policy"
   content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src * data:; script-src 'self' 'unsafe-inline';">
 <title>WM 2026 – Turnierplan</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>">
+<link rel="icon" href="logo.png">
 <link rel="stylesheet"
   href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css"
   integrity="sha384-LxnbKv8aP7/GOl1UQWCGmJFCBPBqUbFmYXarHjByY4Qo+ETH8JtVdcNnXqrruXi"
@@ -24,8 +24,9 @@
   --gold:#9a6700;--red:#cf222e;
 }
 body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;font-size:14px;line-height:1.5;min-height:100vh}
-header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 16px;
   display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100}
+header img.logo{width:36px;height:36px;border-radius:6px;object-fit:cover}
 header h1{font-size:1.1rem;font-weight:700;flex:1}
 header .badge{background:var(--accent);color:#fff;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600}
 .btn-theme{background:none;border:1px solid var(--border);color:var(--text);
@@ -74,7 +75,6 @@ main{padding:16px;max-width:1400px;margin:0 auto}
 .ko-team{display:flex;align-items:center;gap:5px;padding:5px 8px;border-bottom:1px solid var(--border)}
 .ko-team:last-child{border-bottom:none}
 .ko-team.winner{background:rgba(63,185,80,.14);font-weight:700}
-.ko-score{margin-left:auto;font-weight:700;min-width:16px;text-align:right}
 .ko-score-input{width:26px;text-align:center;background:var(--surface2);border:1px solid var(--border);
   color:var(--text);border-radius:3px;font-size:11px;font-weight:700;padding:1px;margin-left:auto}
 .ko-score-input:focus{outline:2px solid var(--accent)}
@@ -82,7 +82,6 @@ main{padding:16px;max-width:1400px;margin:0 auto}
   color:var(--gold);border-radius:3px;font-size:10px;padding:1px;margin-left:2px}
 .ko-pen{font-size:9px;color:var(--gold);margin-left:2px}
 .tbd{color:var(--muted);font-style:italic}
-.ko-date{font-size:9px;color:var(--muted);padding:2px 8px;background:var(--surface2)}
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;
   align-items:center;justify-content:center}
 .overlay.open{display:flex}
@@ -126,7 +125,7 @@ main{padding:16px;max-width:1400px;margin:0 auto}
 </div>
 
 <header>
-  <span style="font-size:1.5rem">⚽</span>
+  <img src="logo.png" alt="hAI.WMPlan Logo" class="logo">
   <h1>FIFA WM 2026 – Turnierplan</h1>
   <span class="badge">Kanada · Mexiko · USA</span>
   <button class="btn-theme" id="themeBtn" aria-label="Theme wechseln">🌙</button>
@@ -141,7 +140,6 @@ main{padding:16px;max-width:1400px;margin:0 auto}
 
 <script>
 'use strict';
-// ─── TEAMS (48, Quelle: FIFA / Sportschau.de Stand 12.06.2026) ───────────────
 const TEAMS={
   mex:{n:'Mexiko',f:'mx'},       kor:{n:'Südkorea',f:'kr'},
   cze:{n:'Tschechien',f:'cz'},   rsa:{n:'Südafrika',f:'za'},
@@ -168,7 +166,6 @@ const TEAMS={
   eng:{n:'England',f:'gb-eng'},  cro:{n:'Kroatien',f:'hr'},
   gha:{n:'Ghana',f:'gh'},        pan:{n:'Panama',f:'pa'},
 };
-// ─── GRUPPEN A-L (Quelle: Sportschau.de / FIFA, 12.06.2026) ─────────────────
 const GROUPS={
   A:['mex','kor','cze','rsa'],
   B:['can','bih','qat','sui'],
@@ -183,19 +180,14 @@ const GROUPS={
   K:['por','col','cod','uzb'],
   L:['eng','cro','gha','pan'],
 };
-// ─── GRUPPENSPIELE (6 pro Gruppe = 72 gesamt) ────────────────────────────────
-function buildGroupMatches(){
+function buildGM(){
   const m=[];let id=1;
   Object.entries(GROUPS).forEach(([g,t])=>{
-    [[0,1],[2,3],[0,2],[1,3],[0,3],[1,2]].forEach(([a,b])=>{
-      m.push({id:id++,stage:'group',group:g,home:t[a],away:t[b]});
-    });
+    [[0,1],[2,3],[0,2],[1,3],[0,3],[1,2]].forEach(([a,b])=>m.push({id:id++,stage:'group',group:g,home:t[a],away:t[b]}));
   });
   return m;
 }
-const GM=buildGroupMatches();
-// ─── K.O.-SCHEMA (Sechzehntelfinale bis Finale) ───────────────────────────────
-// Offizielle Zuordnung WM 2026: Sieger/Zweite Gruppen A-L + beste 8 Dritte
+const GM=buildGM();
 const KO_ROUNDS=[
   {id:'r32',label:'Sechzehntelfinale',matches:[
     {id:201,home:{src:'grp',g:'A',p:1},away:{src:'grp',g:'C',p:2}},
@@ -242,13 +234,11 @@ const KO_ROUNDS=[
     {id:701,home:{src:'ko',m:501},away:{src:'ko',m:502}},
   ]},
 ];
-// ─── STATE ───────────────────────────────────────────────────────────────────
 const SKEY='wm2026v3';
 let RES={};
 function load(){try{const r=localStorage.getItem(SKEY);RES=r?JSON.parse(r):{};}catch(e){RES={};}}
 function save(){try{localStorage.setItem(SKEY,JSON.stringify(RES));}catch(e){}}
 load();
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
 function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function fl(code){return`<span class="fi fi-${esc(code)}"></span>`;}
 function gr(id){return RES[String(id)]||{h:'',a:''};}
@@ -286,18 +276,15 @@ function best8Third(){
 function resolve(src){
   if(!src)return null;
   if(src.src==='grp')return teamFromGroup(src.g,src.p);
-  if(src.src==='b3'){return best8Third()[src.s]||null;}
+  if(src.src==='b3')return best8Third()[src.s]||null;
   if(src.src==='ko')return koWinner(src.m);
   if(src.src==='los')return koLoser(src.m);
   return null;
 }
-function findKOMatch(id){
-  for(const r of KO_ROUNDS){const m=r.matches.find(x=>x.id===id);if(m)return m;}
-  return null;
-}
+function findKOM(id){for(const r of KO_ROUNDS){const m=r.matches.find(x=>x.id===id);if(m)return m;}return null;}
 function koWinner(id){
   const r=gr(id);if(r.h===''||r.a==='')return null;
-  const m=findKOMatch(id);if(!m)return null;
+  const m=findKOM(id);if(!m)return null;
   const h=resolve(m.home),a=resolve(m.away);
   if(Number(r.h)>Number(r.a))return h;
   if(Number(r.h)<Number(r.a))return a;
@@ -307,11 +294,10 @@ function koWinner(id){
 }
 function koLoser(id){
   const w=koWinner(id);if(!w)return null;
-  const m=findKOMatch(id);if(!m)return null;
+  const m=findKOM(id);if(!m)return null;
   const h=resolve(m.home),a=resolve(m.away);
   return w===h?a:h;
 }
-// ─── RENDER ──────────────────────────────────────────────────────────────────
 const APP=document.getElementById('app');
 let curTab='groups',focKey=null,saveTimer=null;
 function rerender(){
@@ -320,7 +306,6 @@ function rerender(){
   if(focKey){const el=document.querySelector(`[data-fk="${focKey}"]`);if(el)el.focus();}
 }
 function schedSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>rerender(),0);}
-
 function renderGroups(){
   APP.innerHTML=`
     <div class="toolbar">
@@ -364,7 +349,6 @@ function renderGroups(){
     sr(el.dataset.mid,el.dataset.side,el.value);schedSave();
   });
 }
-
 function renderKO(){
   APP.innerHTML=`<div class="toolbar">
     <span class="info-badge">🟩 Sieger · ⚽ Elfmeter bei Unentschieden · 8 beste Dritte ins Sechzehntelfinale</span>
@@ -413,7 +397,6 @@ function renderKO(){
     schedSave();
   });
 }
-// ─── MODAL ───────────────────────────────────────────────────────────────────
 function openModal(cb){
   const ov=document.getElementById('overlay');
   const cn=document.getElementById('modalCancel');
@@ -427,7 +410,6 @@ function openModal(cb){
   cn.addEventListener('click',onNo,{once:true});
   document.addEventListener('keydown',onKey);
 }
-// ─── TABS & THEME ─────────────────────────────────────────────────────────────
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   t.classList.add('active');curTab=t.dataset.tab;rerender();
