@@ -90,6 +90,8 @@ main{padding:16px;max-width:1400px;margin:0 auto}
 .team-name{flex:1;display:flex;align-items:center;gap:4px}
 .team-name.right{flex-direction:row-reverse;text-align:right}
 .score-wrap{display:flex;align-items:center;gap:4px;min-width:72px;justify-content:center}
+/* FIX 2: score-print wird im Screen nicht angezeigt, nur im Druck */
+.score-print{display:none}
 .score-input{width:28px;text-align:center;background:var(--surface2);border:1px solid var(--border);
   color:var(--text);border-radius:4px;padding:3px 2px;font-size:13px;font-weight:700}
 .score-input:focus{outline:2px solid var(--accent);border-color:var(--accent)}
@@ -126,6 +128,8 @@ main{padding:16px;max-width:1400px;margin:0 auto}
 .ko-pen-input{width:22px;text-align:center;background:var(--surface2);border:1px solid var(--border);
   color:var(--gold);border-radius:3px;font-size:10px;padding:1px;margin-left:2px}
 .ko-pen{font-size:9px;color:var(--gold);margin-left:2px}
+/* FIX 2: ko-score-print analog zu score-print */
+.ko-score-print{display:none}
 .ko-kickoff{font-size:9px;color:var(--orange);text-align:center;padding:2px 4px;border-bottom:1px solid var(--border)}
 .ko-kickoff.today{color:var(--green);font-weight:700}
 .tbd{color:var(--muted);font-style:italic}
@@ -147,13 +151,23 @@ main{padding:16px;max-width:1400px;margin:0 auto}
 .api-status{font-size:10px;color:var(--muted);text-align:right;margin-top:4px}
 .api-status.ok{color:var(--green)}
 .api-status.err{color:var(--red)}
+/* ── FIX 3: Print-Layout mit Ergebnissen ──────────────────────────────── */
 @media print{
   header,.tabs,.toolbar,.btn-theme,.overlay,.live-badge,
-  .score-input,.ko-score-input,.ko-pen-input,
-  .btn-reset-match,.ko-match-reset,.match-kickoff,.ko-kickoff{display:none!important}
+  .match-kickoff,.ko-kickoff,
+  .btn-reset-match,.ko-match-reset{display:none!important}
+  /* Inputs ausblenden, stattdessen score-print anzeigen */
+  .score-input,.ko-score-input,.ko-pen-input{display:none!important}
+  .score-print,.ko-score-print{
+    display:inline!important;
+    font-weight:700;font-size:13px;min-width:20px;text-align:center;
+  }
   body{background:#fff;color:#000}
   .group-card,.ko-match{border:1px solid #ccc;break-inside:avoid}
   .groups-grid{grid-template-columns:repeat(3,1fr)}
+  .standings tr.qualified{background:#d4f7dc!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .standings tr.possible{background:#dbeeff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .ko-team.winner{background:#d4f7dc!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 @media(max-width:600px){
   .groups-grid{grid-template-columns:1fr}
@@ -162,7 +176,14 @@ main{padding:16px;max-width:1400px;margin:0 auto}
 }
 </style>
 </head>
-<body data-theme="dark">
+<!-- FIX 1: Theme wird aus localStorage geladen, kein FOUC -->
+<script>
+  (function(){
+    const t=localStorage.getItem('wm2026_theme')||'dark';
+    document.documentElement.setAttribute('data-pending-theme',t);
+  })();
+</script>
+<body>
 
 <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
   <div class="modal">
@@ -195,6 +216,15 @@ main{padding:16px;max-width:1400px;margin:0 auto}
 
 <script>
 'use strict';
+
+// ─── FIX 1: Theme persistent ─────────────────────────────────────────────────
+const THEME_KEY = 'wm2026_theme';
+(function(){
+  const saved = localStorage.getItem(THEME_KEY) || 'dark';
+  document.body.dataset.theme = saved;
+  const btn = document.getElementById('themeBtn');
+  if(btn) btn.textContent = saved === 'dark' ? '🌙' : '☀️';
+})();
 
 // ─── Mannschaften ─────────────────────────────────────────────────────────────
 const TEAMS={
@@ -430,7 +460,6 @@ async function fetchLiveScores(){
     const resp = await fetch(`${API_BASE}/games`, {cache:'no-store'});
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     const data = await resp.json();
-    // FIX: robuster Array-Guard mit optionalem Chaining
     const games = Array.isArray(data) ? data
       : Array.isArray(data?.games) ? data.games
       : Array.isArray(data?.matches) ? data.matches
@@ -454,7 +483,6 @@ async function fetchLiveScores(){
 
       const hScore = parseInt(g.home_score??g.homeScore??g.score_home??-1,10);
       const aScore = parseInt(g.away_score??g.awayScore??g.score_away??-1,10);
-      // FIX: minute wird durch esc() gejagt bevor es in LIVE_STATE landet
       const rawMinute = g.minute||g.match_minute||g.elapsed||null;
       const minute = rawMinute ? esc(String(rawMinute)) : null;
 
@@ -566,6 +594,14 @@ function rerender(){
 }
 function schedSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>rerender(),0);}
 
+// ─── FIX 3: Hilfsfunktion für score-print span (sichtbar nur im Druck) ───────
+function scorePrint(val){
+  return `<span class="score-print">${val!==''?esc(String(val)):'-'}</span>`;
+}
+function koScorePrint(val){
+  return `<span class="ko-score-print">${val!==''?esc(String(val)):'-'}</span>`;
+}
+
 function renderGroups(){
   APP.innerHTML=`
     <div class="toolbar">
@@ -591,7 +627,7 @@ function renderGroups(){
       const ko = fmtKickoff(m.id);
       let koLabel;
       if(live){
-        koLabel = `<span class="live-label">🔴 LIVE${minute?' '+minute+"'":''}</span>`;
+        koLabel = `<span class="live-label">🔴 LIVE${minute?' '+minute+"'":''}  </span>`;
       } else if(!unlocked){
         koLabel = `<span class="match-kickoff">🔒 ${ko}</span>`;
       } else if(today){
@@ -600,20 +636,21 @@ function renderGroups(){
         koLabel = '';
       }
       const rowCls = ['match-row', !unlocked?'locked':'', live?'live-now':'', today&&!live?'today':''].filter(Boolean).join(' ');
+      // FIX 2: pattern="[0-9]*" ergänzt; FIX 3: scorePrint() für Druckansicht
       return`<div class="${rowCls}">
         <span class="team-name">${fl(ht.f)} ${esc(ht.n)}</span>
         <div class="score-wrap">
-          <input class="score-input" type="number" min="0" max="30" inputmode="numeric"
+          <input class="score-input" type="number" min="0" max="30" inputmode="numeric" pattern="[0-9]*"
             value="${r.h!==''?r.h:''}" data-mid="${m.id}" data-side="h"
             data-fk="g${m.id}h" aria-label="${esc(ht.n)} Tore"
             ${unlocked?'':'disabled tabindex="-1"'}
-            ${unlocked?'':'title="Spiel noch nicht angepfiffen"'}>
+            ${unlocked?'':'title="Spiel noch nicht angepfiffen"'}>${scorePrint(r.h)}
           <span class="match-sep">:</span>
-          <input class="score-input" type="number" min="0" max="30" inputmode="numeric"
+          <input class="score-input" type="number" min="0" max="30" inputmode="numeric" pattern="[0-9]*"
             value="${r.a!==''?r.a:''}" data-mid="${m.id}" data-side="a"
             data-fk="g${m.id}a" aria-label="${esc(at.n)} Tore"
             ${unlocked?'':'disabled tabindex="-1"'}
-            ${unlocked?'':'title="Spiel noch nicht angepfiffen"'}>
+            ${unlocked?'':'title="Spiel noch nicht angepfiffen"'}>${scorePrint(r.a)}
         </div>
         <span class="team-name right">${esc(at.n)} ${fl(at.f)}</span>
         ${koLabel}
@@ -662,12 +699,13 @@ function renderKO(){
       const hWin=w&&w===hId,aWin=w&&w===aId;
       const hName=hT?`${fl(hT.f)} ${esc(hT.n)}`:`<span class="tbd">TBD</span>`;
       const aName=aT?`${fl(aT.f)} ${esc(aT.n)}`:`<span class="tbd">TBD</span>`;
-      const penH=isDraw?`<input class="ko-pen-input" type="number" min="0" max="20" inputmode="numeric" value="${r.ph!==undefined&&r.ph!==''?r.ph:''}" data-mid="${m.id}" data-side="ph" data-fk="k${m.id}ph" aria-label="Elfmeter">`:r.ph!==undefined&&r.ph!==''?`<span class="ko-pen">(${r.ph})</span>`:``;
-      const penA=isDraw?`<input class="ko-pen-input" type="number" min="0" max="20" inputmode="numeric" value="${r.pa!==undefined&&r.pa!==''?r.pa:''}" data-mid="${m.id}" data-side="pa" data-fk="k${m.id}pa" aria-label="Elfmeter">`:r.pa!==undefined&&r.pa!==''?`<span class="ko-pen">(${r.pa})</span>`:``;
+      // FIX 2: pattern="[0-9]*" auf pen-inputs; FIX 3: koScorePrint()
+      const penH=isDraw?`<input class="ko-pen-input" type="number" min="0" max="20" inputmode="numeric" pattern="[0-9]*" value="${r.ph!==undefined&&r.ph!==''?r.ph:''}" data-mid="${m.id}" data-side="ph" data-fk="k${m.id}ph" aria-label="Elfmeter">`:r.ph!==undefined&&r.ph!==''?`<span class="ko-pen">(${r.ph})</span>`:``;
+      const penA=isDraw?`<input class="ko-pen-input" type="number" min="0" max="20" inputmode="numeric" pattern="[0-9]*" value="${r.pa!==undefined&&r.pa!==''?r.pa:''}" data-mid="${m.id}" data-side="pa" data-fk="k${m.id}pa" aria-label="Elfmeter">`:r.pa!==undefined&&r.pa!==''?`<span class="ko-pen">(${r.pa})</span>`:``;
       const koStr = fmtKickoff(m.id);
       let koBar;
       if(live){
-        koBar = `<div class="ko-kickoff today">🔴 LIVE${minute?' '+minute+"'":''}</div>`;
+        koBar = `<div class="ko-kickoff today">🔴 LIVE${minute?' '+minute+"'":''}  </div>`;
       } else if(koStr){
         koBar = `<div class="ko-kickoff${today?' today':''}">${unlocked?(today?'▶ heute '+koStr:koStr):'🔒 '+koStr}</div>`;
       } else {
@@ -681,16 +719,16 @@ function renderKO(){
           style="${hasResult&&unlocked?'':'opacity:.2;pointer-events:none'}">✕</button>
         <div class="ko-team${hWin?' winner':''}">
           ${hName}
-          <input class="ko-score-input" type="number" min="0" max="30" inputmode="numeric"
+          <input class="ko-score-input" type="number" min="0" max="30" inputmode="numeric" pattern="[0-9]*"
             value="${r.h!==''?r.h:''}" data-mid="${m.id}" data-side="h"
-            data-fk="k${m.id}h" ${unlocked?'':'disabled tabindex="-1"'}>
+            data-fk="k${m.id}h" ${unlocked?'':'disabled tabindex="-1"'}>${koScorePrint(r.h)}
           ${penH}
         </div>
         <div class="ko-team${aWin?' winner':''}">
           ${aName}
-          <input class="ko-score-input" type="number" min="0" max="30" inputmode="numeric"
+          <input class="ko-score-input" type="number" min="0" max="30" inputmode="numeric" pattern="[0-9]*"
             value="${r.a!==''?r.a:''}" data-mid="${m.id}" data-side="a"
-            data-fk="k${m.id}a" ${unlocked?'':'disabled tabindex="-1"'}>
+            data-fk="k${m.id}a" ${unlocked?'':'disabled tabindex="-1"'}>${koScorePrint(r.a)}
           ${penA}
         </div>`;
       wrap.appendChild(div);
@@ -723,11 +761,15 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   t.classList.add('active');curTab=t.dataset.tab;rerender();
 }));
+
+// FIX 1: Theme-Button speichert in localStorage
 const tb=document.getElementById('themeBtn');
 tb.addEventListener('click',()=>{
-  const d=document.body.dataset.theme==='dark';
-  document.body.dataset.theme=d?'light':'dark';
-  tb.textContent=d?'🌙':'☀️';
+  const isDark=document.body.dataset.theme==='dark';
+  const newTheme=isDark?'light':'dark';
+  document.body.dataset.theme=newTheme;
+  tb.textContent=isDark?'☀️':'🌙';
+  localStorage.setItem(THEME_KEY, newTheme);
 });
 
 renderGroups();
