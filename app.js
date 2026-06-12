@@ -2,8 +2,9 @@
 
 // ─── Konstanten ──────────────────────────────────────────────────────────────
 const THEME_KEY = 'wm2026_theme';
-const SKEY = 'wm2026v3';
-const API_BASE = 'https://worldcup26.ir/get';
+const SKEY      = 'wm2026v3';
+const LOCKED_KEY = 'wm2026_locked'; // Set von Match-IDs, die offiziell abgeschlossen sind
+const API_BASE  = 'https://worldcup26.ir/get';
 const POLL_INTERVAL = 60000;
 
 // ─── Mannschaften ────────────────────────────────────────────────────────────
@@ -43,8 +44,7 @@ const GROUPS = {
   K:['por','col','cod','uzb'], L:['eng','cro','gha','pan'],
 };
 
-// ─── Spielplan: alle 72 Gruppenspiele mit echten Terminen (MESZ) ──────────────
-// Format: [id, Heimteam, Auswärtsteam, Gruppe, 'YYYY-MM-DDTHH:MM', Stadion, Stadt]
+// ─── Spielplan: alle 72 Gruppenspiele mit echten Terminen (MESZ) ─────────────
 const GM_DATA = [
   // Gruppe A
   [1,  'mex','rsa','A','2026-06-11T21:00','Estadio Azteca','Mexico City'],
@@ -132,18 +132,14 @@ const GM_DATA = [
   [68, 'cro','gha','L','2026-06-27T23:00','Lincoln Financial Field','Philadelphia'],
 ];
 
-// Spielobjekte aus GM_DATA erzeugen
 const GM = GM_DATA.map(([id, home, away, group, kickoff, stadium, city]) => ({
   id, home, away, stage: 'group', group, kickoff, stadium, city,
 }));
 
-// KICKOFFS-Map für isUnlocked / fmtKickoff
 const KICKOFFS = {};
 GM.forEach(m => { KICKOFFS[m.id] = m.kickoff; });
 
-// K.o.-Kickoffs (MESZ) – Sechzehntelfinale bis Finale
 const KO_KICKOFFS = {
-  // Sechzehntelfinale
   201:'2026-06-28T21:00', 202:'2026-06-29T22:30',
   203:'2026-06-29T03:00', 204:'2026-06-29T19:00',
   205:'2026-06-30T23:00', 206:'2026-06-30T19:00',
@@ -152,17 +148,13 @@ const KO_KICKOFFS = {
   211:'2026-07-03T01:00', 212:'2026-07-02T21:00',
   213:'2026-07-03T05:00', 214:'2026-07-04T00:00',
   215:'2026-07-04T02:30', 216:'2026-07-03T20:00',
-  // Achtelfinale
   301:'2026-07-04T23:00', 302:'2026-07-04T19:00',
   303:'2026-07-05T22:00', 304:'2026-07-06T02:00',
   305:'2026-07-06T21:00', 306:'2026-07-07T02:00',
   307:'2026-07-07T18:00', 308:'2026-07-07T22:00',
-  // Viertelfinale
   401:'2026-07-09T22:00', 402:'2026-07-10T21:00',
   403:'2026-07-11T23:00', 404:'2026-07-12T03:00',
-  // Halbfinale
   501:'2026-07-14T21:00', 502:'2026-07-15T21:00',
-  // Platz 3 + Finale
   601:'2026-07-18T23:00', 701:'2026-07-19T21:00',
 };
 Object.assign(KICKOFFS, KO_KICKOFFS);
@@ -232,8 +224,23 @@ const KO_ROUNDS = [
 
 // ─── Storage ──────────────────────────────────────────────────────────────────
 let RES = {};
-function load() { try { const r = localStorage.getItem(SKEY); RES = r ? JSON.parse(r) : {}; } catch(e) { RES = {}; } }
-function save() { try { localStorage.setItem(SKEY, JSON.stringify(RES)); } catch(e) {} }
+// LOCKED: Set von Match-IDs, die vom API als abgeschlossen gemeldet wurden
+// Diese Ergebnisse sind offiziell und können nicht manuell überschrieben werden
+let LOCKED = new Set();
+
+function load() {
+  try {
+    const r = localStorage.getItem(SKEY); RES = r ? JSON.parse(r) : {};
+    const l = localStorage.getItem(LOCKED_KEY); 
+    LOCKED = l ? new Set(JSON.parse(l)) : new Set();
+  } catch(e) { RES = {}; LOCKED = new Set(); }
+}
+function save() {
+  try {
+    localStorage.setItem(SKEY, JSON.stringify(RES));
+    localStorage.setItem(LOCKED_KEY, JSON.stringify([...LOCKED]));
+  } catch(e) {}
+}
 load();
 
 // ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
@@ -241,28 +248,35 @@ function esc(s) {
   if (s == null) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-function fl(code) { return `<span class="fi fi-${esc(code)}"></span>`; }
-function gr(id)   { return RES[String(id)] || {h:'',a:''}; }
+function fl(code) {
+  // Flagge als CSS-Klasse (flag-icons) UND als Fallback-Bild via flagcdn.com
+  const iso = esc(code);
+  return `<span class="fi fi-${iso}" title="${iso}"></span>`;
+}
+function gr(id) { return RES[String(id)] || {h:'',a:''}; }
+
+// Schreibschutz: offiziell abgeschlossene Spiele können nicht überschrieben werden
+function isLockedByAPI(id) { return LOCKED.has(String(id)); }
 
 function sr(id, side, val) {
-  if (!isUnlocked(id)) return;
+  if (!isUnlocked(id) || isLockedByAPI(id)) return; // gesperrt = nicht editierbar
   const k = String(id); if (!RES[k]) RES[k] = {h:'',a:''};
   RES[k][side] = val === '' ? '' : Math.max(0, Math.min(30, parseInt(val, 10)));
   save();
 }
 function sp(id, side, val) {
-  if (!isUnlocked(id)) return;
+  if (!isUnlocked(id) || isLockedByAPI(id)) return;
   const k = String(id); if (!RES[k]) RES[k] = {h:'',a:''};
   RES[k]['p'+side] = val === '' ? '' : Math.max(0, Math.min(20, parseInt(val, 10)));
   save();
 }
 function resetMatch(id) {
-  if (!isUnlocked(id)) return;
+  if (!isUnlocked(id) || isLockedByAPI(id)) return; // offiziell gesperrte nie resetten
   delete RES[String(id)]; save(); rerender();
 }
 
-function scorePrint(val)  { return `<span class="score-print">${val !== '' ? esc(String(val)) : '-'}</span>`; }
-function koScorePrint(val){ return `<span class="ko-score-print">${val !== '' ? esc(String(val)) : '-'}</span>`; }
+function scorePrint(val)   { return `<span class="score-print">${val !== '' ? esc(String(val)) : '-'}</span>`; }
+function koScorePrint(val) { return `<span class="ko-score-print">${val !== '' ? esc(String(val)) : '-'}</span>`; }
 
 // ─── Kickoff-Hilfsfunktionen ──────────────────────────────────────────────────
 function isInLiveWindow(id) {
@@ -285,10 +299,9 @@ function isToday(id) {
   return d.getFullYear()===n.getFullYear() && d.getMonth()===n.getMonth() && d.getDate()===n.getDate();
 }
 
-// ─── Live-Polling ─────────────────────────────────────────────────────────────
+// ─── Live-Polling + Auto-Lock ─────────────────────────────────────────────────
 const LIVE_STATE = {};
 let pollTimer = null;
-let anyLive = false;
 
 async function fetchLiveScores() {
   const statusEl = document.getElementById('apiStatus');
@@ -304,8 +317,11 @@ async function fetchLiveScores() {
 
     games.forEach(g => {
       const status = (g.status || g.match_status || '').toLowerCase();
-      const isLive     = status.includes('live') || status.includes('ongoing') || status.includes('in_progress') || status==='1h' || status==='2h' || status==='ht';
-      const isFinished = status.includes('finish') || status.includes('complet') || status.includes('ended') || status==='ft' || status==='aet';
+      const isLive     = status.includes('live') || status.includes('ongoing') ||
+                         status.includes('in_progress') || status==='1h' || status==='2h' || status==='ht';
+      const isFinished = status.includes('finish') || status.includes('complet') ||
+                         status.includes('ended') || status==='ft' || status==='aet' ||
+                         status==='full_time' || status==='finished';
 
       const hName = g.home_team || g.homeTeam || g.home || '';
       const aName = g.away_team || g.awayTeam || g.away || '';
@@ -324,20 +340,25 @@ async function fetchLiveScores() {
       if (isLive) {
         hasLive = true;
         LIVE_STATE[mid] = {live:true, minute};
+        // Live-Scores eintragen (noch editierbar bis Abpfiff)
         if (hScore >= 0 && aScore >= 0) RES[String(mid)] = {h:hScore, a:aScore};
       } else if (isFinished) {
+        // ✅ ABGESCHLOSSEN: Ergebnis eintragen + dauerhaft sperren
         LIVE_STATE[mid] = {live:false, minute:null};
-        if (hScore >= 0 && aScore >= 0) RES[String(mid)] = {h:hScore, a:aScore};
+        if (hScore >= 0 && aScore >= 0) {
+          RES[String(mid)] = {h:hScore, a:aScore}; // offizielles Ergebnis
+          LOCKED.add(String(mid));                  // für immer gesperrt
+        }
       }
     });
 
     save();
-    anyLive = hasLive;
-    document.getElementById('liveBadge')?.classList.toggle('visible', hasLive);
+    const anyLive = hasLive;
+    document.getElementById('liveBadge')?.classList.toggle('visible', anyLive);
     if (statusEl) {
       const now = new Date();
       statusEl.className = 'api-status ok';
-      statusEl.textContent = `⟳ Letzter API-Abruf: ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')} · worldcup26.ir`;
+      statusEl.textContent = `⟳ API: ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')} · worldcup26.ir · ${LOCKED.size} Spiele offiziell abgeschlossen`;
     }
     rerender();
   } catch(err) {
@@ -387,8 +408,7 @@ function teamFromGroup(g, pos) { return calcStandings(g)[pos-1]?.id || null; }
 function best8Third() {
   return Object.keys(GROUPS)
     .map(g => { const st = calcStandings(g); return st[2] ? {...st[2], g} : null; })
-    .filter(Boolean)
-    .sort((a,b) => b.pts-a.pts || b.gd-a.gd || b.gf-a.gf)
+    .filter(Boolean).sort((a,b) => b.pts-a.pts || b.gd-a.gd || b.gf-a.gf)
     .slice(0,8).map(t => t.id);
 }
 function resolve(src) {
@@ -435,11 +455,15 @@ function renderGroups() {
   APP.innerHTML = `
     <div class="toolbar">
       <button class="btn btn-cancel" id="btnReset">🗑 Alle Ergebnisse löschen</button>
-      <span class="info-badge">🔒 = noch nicht angepfiffen · 🔴 LIVE = automatischer Abruf läuft</span>
+      <span class="info-badge">🔒 = noch nicht angepfiffen &nbsp;|&nbsp; 🔐 = offiziell abgeschlossen &nbsp;|&nbsp; 🔴 = Live</span>
     </div>
     <div class="groups-grid" id="gg"></div>`;
   document.getElementById('btnReset').addEventListener('click', () =>
-    openModal(() => { RES = {}; save(); rerender(); }));
+    openModal(() => {
+      // Offiziell gesperrte Ergebnisse bleiben erhalten!
+      Object.keys(RES).forEach(k => { if (!LOCKED.has(k)) delete RES[k]; });
+      save(); rerender();
+    }));
   const grid = document.getElementById('gg');
 
   Object.keys(GROUPS).forEach(gid => {
@@ -449,41 +473,52 @@ function renderGroups() {
       return `<tr class="${cls}"><td>${fl(T.f)} ${esc(T.n)}</td><td>${t.pl}</td><td>${t.pts}</td><td>${t.gf}:${t.ga}</td><td>${t.gd > 0 ? '+' : ''}${t.gd}</td></tr>`;
     }).join('');
 
-    // Spiele chronologisch sortiert anzeigen
     const groupMatches = GM.filter(m => m.group === gid)
       .sort((a,b) => new Date(a.kickoff) - new Date(b.kickoff));
 
     const mrows = groupMatches.map(m => {
       const ht = TEAMS[m.home], at = TEAMS[m.away], r = gr(m.id);
-      const unlocked = isUnlocked(m.id);
-      const live = LIVE_STATE[m.id]?.live;
-      const minute = LIVE_STATE[m.id]?.minute;
-      const today = isToday(m.id);
-      const hasResult = r.h !== '' || r.a !== '';
-      const ko = fmtKickoff(m.id);
+      const unlocked    = isUnlocked(m.id);
+      const apiLocked   = isLockedByAPI(m.id);  // offiziell abgeschlossen
+      const editable    = unlocked && !apiLocked;
+      const live        = LIVE_STATE[m.id]?.live;
+      const minute      = LIVE_STATE[m.id]?.minute;
+      const today       = isToday(m.id);
+      const hasResult   = r.h !== '' || r.a !== '';
+      const ko          = fmtKickoff(m.id);
+
       let koLabel;
       if (live)           koLabel = `<span class="live-label">🔴 LIVE${minute ? ' '+minute+"'" : ''}</span>`;
+      else if (apiLocked) koLabel = `<span class="match-kickoff locked-api">🔐 ${ko} · offiziell</span>`;
       else if (!unlocked) koLabel = `<span class="match-kickoff">🔒 ${ko}</span>`;
       else if (today)     koLabel = `<span class="match-kickoff today">▶ heute ${ko}</span>`;
       else                koLabel = `<span class="match-kickoff done">${ko}</span>`;
-      const rowCls = ['match-row', !unlocked?'locked':'', live?'live-now':'', today&&!live?'today':''].filter(Boolean).join(' ');
+
+      const rowCls = [
+        'match-row',
+        !unlocked ? 'locked' : '',
+        apiLocked ? 'api-locked' : '',
+        live ? 'live-now' : '',
+        today && !live ? 'today' : ''
+      ].filter(Boolean).join(' ');
+
       return `<div class="${rowCls}">
         <span class="team-name">${fl(ht.f)} ${esc(ht.n)}</span>
         <div class="score-wrap">
-          <input class="score-input" type="number" min="0" max="30" inputmode="numeric" pattern="[0-9]*"
-            value="${r.h!==''?r.h:''}" data-mid="${m.id}" data-side="h"
-            data-fk="g${m.id}h" aria-label="${esc(ht.n)} Tore"
-            ${unlocked?'':'disabled tabindex="-1" title="Spiel noch nicht angepfiffen"'}>${scorePrint(r.h)}
+          <input class="score-input" type="number" min="0" max="30" inputmode="numeric"
+            value="${r.h!==''?r.h:''}" data-mid="${m.id}" data-side="h" data-fk="g${m.id}h"
+            aria-label="${esc(ht.n)} Tore"
+            ${editable?'':'disabled tabindex="-1"'}>${scorePrint(r.h)}
           <span class="match-sep">:</span>
-          <input class="score-input" type="number" min="0" max="30" inputmode="numeric" pattern="[0-9]*"
-            value="${r.a!==''?r.a:''}" data-mid="${m.id}" data-side="a"
-            data-fk="g${m.id}a" aria-label="${esc(at.n)} Tore"
-            ${unlocked?'':'disabled tabindex="-1" title="Spiel noch nicht angepfiffen"'}>${scorePrint(r.a)}
+          <input class="score-input" type="number" min="0" max="30" inputmode="numeric"
+            value="${r.a!==''?r.a:''}" data-mid="${m.id}" data-side="a" data-fk="g${m.id}a"
+            aria-label="${esc(at.n)} Tore"
+            ${editable?'':'disabled tabindex="-1"'}>${scorePrint(r.a)}
         </div>
         <span class="team-name right">${esc(at.n)} ${fl(at.f)}</span>
         ${koLabel}
         <button class="btn-reset-match" data-rmid="${m.id}" title="Ergebnis zurücksetzen"
-          style="${hasResult&&unlocked?'':'opacity:.25;pointer-events:none'}" aria-label="Ergebnis zurücksetzen">✕</button>
+          style="${hasResult && editable ?'':'opacity:.25;pointer-events:none'}" aria-label="reset">✕</button>
       </div>`;
     }).join('');
 
@@ -508,7 +543,7 @@ function renderGroups() {
 
 function renderKO() {
   APP.innerHTML = `<div class="toolbar">
-    <span class="info-badge">🟩 Sieger · ⚽ Elfmeter · 🔴 Live-Update · 🔒 Gesperrt</span>
+    <span class="info-badge">🟩 Sieger · ⚽ Elfmeter · 🔴 Live · 🔐 Offiziell gesperrt · 🔒 Noch nicht</span>
   </div><div class="ko-wrap"><div class="bracket" id="br"></div></div>`;
   const br = document.getElementById('br');
 
@@ -520,47 +555,50 @@ function renderKO() {
     rnd.matches.forEach(m => {
       const hId = resolve(m.home), aId = resolve(m.away);
       const hT = hId ? TEAMS[hId] : null, aT = aId ? TEAMS[aId] : null;
-      const r = gr(m.id);
-      const unlocked = isUnlocked(m.id);
-      const live = LIVE_STATE[m.id]?.live;
-      const minute = LIVE_STATE[m.id]?.minute;
-      const today = isToday(m.id);
+      const r         = gr(m.id);
+      const unlocked  = isUnlocked(m.id);
+      const apiLocked = isLockedByAPI(m.id);
+      const editable  = unlocked && !apiLocked;
+      const live      = LIVE_STATE[m.id]?.live;
+      const minute    = LIVE_STATE[m.id]?.minute;
+      const today     = isToday(m.id);
       const hasResult = r.h !== '' || r.a !== '';
-      const isDraw = r.h !== '' && r.a !== '' && Number(r.h) === Number(r.a);
+      const isDraw    = r.h !== '' && r.a !== '' && Number(r.h) === Number(r.a);
       const w = koWinner(m.id);
       const hWin = w && w === hId, aWin = w && w === aId;
       const hName = hT ? `${fl(hT.f)} ${esc(hT.n)}` : `<span class="tbd">TBD</span>`;
       const aName = aT ? `${fl(aT.f)} ${esc(aT.n)}` : `<span class="tbd">TBD</span>`;
-      const penH = isDraw
-        ? `<input class="ko-pen-input" type="number" min="0" max="20" inputmode="numeric" pattern="[0-9]*" value="${r.ph!==undefined&&r.ph!==''?r.ph:''}" data-mid="${m.id}" data-side="ph" data-fk="k${m.id}ph" aria-label="Elfmeter">`
+      const penH = isDraw && editable
+        ? `<input class="ko-pen-input" type="number" min="0" max="20" value="${r.ph!==undefined&&r.ph!==''?r.ph:''}" data-mid="${m.id}" data-side="ph" data-fk="k${m.id}ph" aria-label="Elfmeter">`
         : r.ph !== undefined && r.ph !== '' ? `<span class="ko-pen">(${r.ph})</span>` : '';
-      const penA = isDraw
-        ? `<input class="ko-pen-input" type="number" min="0" max="20" inputmode="numeric" pattern="[0-9]*" value="${r.pa!==undefined&&r.pa!==''?r.pa:''}" data-mid="${m.id}" data-side="pa" data-fk="k${m.id}pa" aria-label="Elfmeter">`
+      const penA = isDraw && editable
+        ? `<input class="ko-pen-input" type="number" min="0" max="20" value="${r.pa!==undefined&&r.pa!==''?r.pa:''}" data-mid="${m.id}" data-side="pa" data-fk="k${m.id}pa" aria-label="Elfmeter">`
         : r.pa !== undefined && r.pa !== '' ? `<span class="ko-pen">(${r.pa})</span>` : '';
       const koStr = fmtKickoff(m.id);
       let koBar;
-      if (live)       koBar = `<div class="ko-kickoff today">🔴 LIVE${minute?' '+minute+"'":''}}</div>`;
-      else if (koStr) koBar = `<div class="ko-kickoff${today?' today':''}">${unlocked?(today?'▶ heute '+koStr:koStr):'🔒 '+koStr}</div>`;
-      else            koBar = '';
+      if (live)            koBar = `<div class="ko-kickoff today">🔴 LIVE${minute?' '+minute+"'":''}</div>`;
+      else if (apiLocked)  koBar = `<div class="ko-kickoff locked-api">🔐 ${koStr} · offiziell</div>`;
+      else if (koStr)      koBar = `<div class="ko-kickoff${today?' today':''}">${unlocked?(today?'▶ heute '+koStr:koStr):'🔒 '+koStr}</div>`;
+      else                 koBar = '';
 
       const div = document.createElement('div');
-      div.className = `ko-match${unlocked?'':' locked'}${live?' live-now':''}`;
+      div.className = `ko-match${!editable?' locked':''}${apiLocked?' api-locked':''}${live?' live-now':''}`;
       div.innerHTML = `
         ${koBar}
-        <button class="ko-match-reset" data-rmid="${m.id}" title="Ergebnis zurücksetzen"
-          style="${hasResult&&unlocked?'':'opacity:.2;pointer-events:none'}">✕</button>
+        <button class="ko-match-reset" data-rmid="${m.id}" title="zurücksetzen"
+          style="${hasResult&&editable?'':'opacity:.2;pointer-events:none'}">✕</button>
         <div class="ko-team${hWin?' winner':''}">
           ${hName}
-          <input class="ko-score-input" type="number" min="0" max="30" inputmode="numeric" pattern="[0-9]*"
-            value="${r.h!==''?r.h:''}" data-mid="${m.id}" data-side="h"
-            data-fk="k${m.id}h" ${unlocked?'':'disabled tabindex="-1"'}>${koScorePrint(r.h)}
+          <input class="ko-score-input" type="number" min="0" max="30"
+            value="${r.h!==''?r.h:''}" data-mid="${m.id}" data-side="h" data-fk="k${m.id}h"
+            ${editable?'':'disabled tabindex="-1"'}>${koScorePrint(r.h)}
           ${penH}
         </div>
         <div class="ko-team${aWin?' winner':''}">
           ${aName}
-          <input class="ko-score-input" type="number" min="0" max="30" inputmode="numeric" pattern="[0-9]*"
-            value="${r.a!==''?r.a:''}" data-mid="${m.id}" data-side="a"
-            data-fk="k${m.id}a" ${unlocked?'':'disabled tabindex="-1"'}>${koScorePrint(r.a)}
+          <input class="ko-score-input" type="number" min="0" max="30"
+            value="${r.a!==''?r.a:''}" data-mid="${m.id}" data-side="a" data-fk="k${m.id}a"
+            ${editable?'':'disabled tabindex="-1"'}>${koScorePrint(r.a)}
           ${penA}
         </div>`;
       wrap.appendChild(div);
@@ -572,8 +610,7 @@ function renderKO() {
     const el = e.target; if (!el.dataset.mid) return;
     if (el.dataset.side === 'ph' || el.dataset.side === 'pa')
       sp(el.dataset.mid, el.dataset.side === 'ph' ? 'h' : 'a', el.value);
-    else
-      sr(el.dataset.mid, el.dataset.side, el.value);
+    else sr(el.dataset.mid, el.dataset.side, el.value);
     schedSave();
   });
   br.addEventListener('click', e => {
@@ -601,11 +638,11 @@ function openModal(cb) {
   document.addEventListener('keydown', onKey);
 }
 
-// ─── PWA: Service Worker ───────────────────────────────────────────────────────
+// ─── PWA: Service Worker ──────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('[PWA] SW registriert:', reg.scope))
+      .then(reg => console.log('[PWA] SW:', reg.scope))
       .catch(err => console.warn('[PWA] SW Fehler:', err));
   });
 }
@@ -613,15 +650,13 @@ if ('serviceWorker' in navigator) {
 // ─── PWA: Install-Banner ───────────────────────────────────────────────────────
 let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  deferredPrompt = e;
-  const banner = document.getElementById('installBanner');
-  if (banner) banner.classList.add('visible');
+  e.preventDefault(); deferredPrompt = e;
+  document.getElementById('installBanner')?.classList.add('visible');
 });
 document.getElementById('installBtn')?.addEventListener('click', async () => {
   if (!deferredPrompt) return;
   deferredPrompt.prompt();
-  const { outcome } = await deferredPrompt.userChoice;
+  await deferredPrompt.userChoice;
   deferredPrompt = null;
   document.getElementById('installBanner')?.classList.remove('visible');
 });
@@ -636,7 +671,6 @@ document.getElementById('closeBanner')?.addEventListener('click', () => {
   const btn = document.getElementById('themeBtn');
   if (btn) btn.textContent = saved === 'dark' ? '🌙' : '☀️';
 })();
-
 document.getElementById('themeBtn')?.addEventListener('click', () => {
   const isDark = document.body.dataset.theme === 'dark';
   const newTheme = isDark ? 'light' : 'dark';
