@@ -7,21 +7,36 @@
 <meta http-equiv="Content-Security-Policy"
   content="default-src 'self'; style-src 'self' https://cdn.jsdelivr.net; img-src * data:; script-src 'self'; connect-src https://worldcup26.ir;">
 <meta name="theme-color" content="#58a6ff">
-<meta name="description" content="FIFA WM 2026 – Turnierplan mit Gruppenphase, K.o.-Baum und Live-Ergebnissen">
-<title>WM 2026 – Turnierplan</title>
+<meta name="description" content="Interaktiver FIFA WM 2026 Turnierplan – Gruppenphase, K.o.-Baum, Live-Scores, offline-fähig (PWA). 48 Teams, 12 Gruppen, 6 K.o.-Runden. Self-hosted, kein Framework.">
+<meta name="author" content="Daniel Lienhard">
+<meta name="application-name" content="hAI.WMPlan">
+<meta name="keywords" content="WM 2026, FIFA World Cup 2026, Turnierplan, Gruppenphase, K.o.-Baum, Fussball, Self-hosted">
+<!-- Open Graph -->
+<meta property="og:title" content="hAI.WMPlan – FIFA WM 2026 Turnierplan">
+<meta property="og:description" content="Interaktiver WM-2026-Turnierplan: 48 Teams, 12 Gruppen, K.o.-Baum, Live-Scores, PWA.">
+<meta property="og:image" content="logo.png">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="de_DE">
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="hAI.WMPlan – FIFA WM 2026">
+<meta name="twitter:description" content="Interaktiver WM-Turnierplan mit Live-Scores und K.o.-Baum.">
+<meta name="twitter:image" content="logo.png">
+<title>WM 2026 – Turnierplan | hAI.WMPlan</title>
 <link rel="icon" href="logo.png">
-<link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="logo.png">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet"
   href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css"
   integrity="sha384-LxnbKv8aP7/GOl1UQWCGmJFCBPBqUbFmYXarHjByY4Qo+ETH8JtVdcNnXqrruXi"
   crossorigin="anonymous">
-<!-- Theme-FOUC verhindern: wird vor dem Body ausgeführt -->
+<!-- Theme-FOUC verhindern -->
 <script>
   (function(){
     const t = localStorage.getItem('wm2026_theme') || 'dark';
     document.documentElement.dataset.theme = t;
+    document.body && (document.body.dataset.theme = t);
   })();
 </script>
 </head>
@@ -55,13 +70,13 @@
   <button class="btn-theme" id="themeBtn" aria-label="Theme wechseln">🌙</button>
 </header>
 
-<nav class="tabs">
-  <button class="tab active" data-tab="groups">Gruppenphase</button>
-  <button class="tab" data-tab="ko">K.o.-Phase</button>
+<nav class="tabs" role="tablist" aria-label="Turnierphase">
+  <button class="tab active" data-tab="groups" role="tab" aria-selected="true">Gruppenphase</button>
+  <button class="tab" data-tab="ko" role="tab" aria-selected="false">K.o.-Phase</button>
 </nav>
 
-<main id="app"></main>
-<div class="api-status" id="apiStatus"></div>
+<main id="app" role="main"></main>
+<div class="api-status" id="apiStatus" aria-live="polite"></div>
 
 <script src="app.js"></script>
 </body>
