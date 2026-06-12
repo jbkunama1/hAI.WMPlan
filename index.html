@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy"
-  content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src * data:; script-src 'self' 'unsafe-inline';">
+  content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src * data:; script-src 'self' 'unsafe-inline'; connect-src *;">
 <title>WM 2026 – Turnierplan</title>
 <link rel="icon" href="logo.png">
 <link rel="stylesheet"
@@ -31,6 +31,33 @@ header h1{font-size:1.1rem;font-weight:700;flex:1}
 header .badge{background:var(--accent);color:#fff;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600}
 .btn-theme{background:none;border:1px solid var(--border);color:var(--text);
   padding:4px 10px;border-radius:var(--radius);cursor:pointer;font-size:12px}
+/* ── LIVE-Badge ───────────────────────────────────────────────────────── */
+.live-badge{
+  display:none;align-items:center;gap:5px;
+  background:#f85149;color:#fff;font-size:11px;font-weight:700;
+  padding:3px 10px;border-radius:20px;letter-spacing:.04em;
+}
+.live-badge.visible{display:flex}
+.live-dot{
+  width:8px;height:8px;border-radius:50%;background:#fff;
+  animation:blink 1s infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+/* Spiele die gerade live sind */
+.match-row.live-now,.ko-match.live-now{
+  box-shadow:0 0 0 2px var(--red);
+  animation:pulseBorder 1.5s infinite;
+}
+@keyframes pulseBorder{
+  0%,100%{box-shadow:0 0 0 2px var(--red)}
+  50%{box-shadow:0 0 0 4px rgba(248,81,73,.4)}
+}
+.live-label{
+  font-size:10px;color:var(--red);font-weight:700;
+  animation:blink 1s infinite;white-space:nowrap;
+}
+.match-minute{font-size:10px;color:var(--muted);margin-left:2px}
+/* ── Tabs & Layout ──────────────────────────────────────────────────────── */
 .tabs{display:flex;gap:4px;padding:12px 16px 0;background:var(--surface);border-bottom:1px solid var(--border)}
 .tab{padding:8px 16px;border-radius:var(--radius) var(--radius) 0 0;border:1px solid transparent;
   border-bottom:none;cursor:pointer;background:none;color:var(--muted);font-weight:500;font-size:13px;transition:.15s}
@@ -52,14 +79,12 @@ main{padding:16px;max-width:1400px;margin:0 auto}
 .fi{width:20px;height:14px;border-radius:2px;margin-right:5px;vertical-align:middle;display:inline-block}
 .matches{padding:6px 0}
 .match-row{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 12px;
-  border-bottom:1px solid var(--border);font-size:12px;position:relative}
-.match-row:last-child{border-bottom:none}
-/* Gesperrte Spiele */
+  border-bottom:1px solid var(--border);font-size:12px;position:relative;border-radius:4px;margin:1px 4px}
+.match-row:last-child{border-bottom:1px solid var(--border)}
 .match-row.locked{opacity:.55}
 .match-row.locked .score-input{pointer-events:none;cursor:not-allowed;background:var(--surface2);border-color:transparent;color:var(--muted)}
 .match-row.locked .btn-reset-match{display:none}
 .match-kickoff{font-size:10px;color:var(--orange);white-space:nowrap;margin-left:4px;flex-shrink:0}
-/* Heute-Spiele hervorheben */
 .match-row.today .match-kickoff{color:var(--green);font-weight:700}
 .team-name{flex:1;display:flex;align-items:center;gap:4px}
 .team-name.right{flex-direction:row-reverse;text-align:right}
@@ -118,8 +143,11 @@ main{padding:16px;max-width:1400px;margin:0 auto}
 .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
 .toolbar .btn{font-size:12px;padding:5px 12px}
 .info-badge{font-size:11px;color:var(--muted);margin-left:auto}
+.api-status{font-size:10px;color:var(--muted);text-align:right;margin-top:4px}
+.api-status.ok{color:var(--green)}
+.api-status.err{color:var(--red)}
 @media print{
-  header,.tabs,.toolbar,.btn-theme,.overlay,
+  header,.tabs,.toolbar,.btn-theme,.overlay,.live-badge,
   .score-input,.ko-score-input,.ko-pen-input,
   .btn-reset-match,.ko-match-reset,.match-kickoff,.ko-kickoff{display:none!important}
   body{background:#fff;color:#000}
@@ -150,6 +178,9 @@ main{padding:16px;max-width:1400px;margin:0 auto}
   <img src="logo.png" alt="hAI.WMPlan Logo" class="logo">
   <h1>FIFA WM 2026 – Turnierplan</h1>
   <span class="badge">Kanada · Mexiko · USA</span>
+  <div class="live-badge" id="liveBadge" title="Live-Daten werden automatisch abgerufen">
+    <span class="live-dot"></span> LIVE
+  </div>
   <button class="btn-theme" id="themeBtn" aria-label="Theme wechseln">🌙</button>
 </header>
 
@@ -159,6 +190,7 @@ main{padding:16px;max-width:1400px;margin:0 auto}
 </nav>
 
 <main id="app"></main>
+<div class="api-status" id="apiStatus"></div>
 
 <script>
 'use strict';
@@ -206,161 +238,91 @@ const GROUPS={
   L:['eng','cro','gha','pan'],
 };
 
-// ─── Spieltermine (ISO 8601, Ortszeit der Austragungsstadt, keine Umrechnung nötig – 
-//     wir vergleichen nur: ist der Anpfiff <= jetzt?) ───────────────────────────
-// Gruppenspiele: Reihenfolge [0,1],[2,3],[0,2],[1,3],[0,3],[1,2] je Gruppe
-// Quelle: FIFA / Sportschau.de – alle Zeiten in CEST (UTC+2)
+// ─── Kickoff-Zeiten (CEST = lokale Systemzeit) ──────────────────────────────
 const KICKOFFS = {
-  // Gruppe A (mex kor cze rsa)
-  // Spieltag 1
-  1:  '2026-06-11T19:00',  // MEX-RSA (tatsächlich 11.6.)
-  2:  '2026-06-12T19:00',  // KOR-CZE
-  // Spieltag 2 (ca. 15.–17.6., Platzhalter)
-  3:  '2026-06-16T19:00',  // MEX-CZE
-  4:  '2026-06-16T22:00',  // KOR-RSA
-  // Spieltag 3 (ca. 20.6.)
-  5:  '2026-06-21T21:00',  // MEX-KOR
-  6:  '2026-06-21T21:00',  // CZE-RSA
-
-  // Gruppe B (can bih qat sui)
-  7:  '2026-06-12T22:00',  // CAN-BIH
-  8:  '2026-06-13T21:00',  // QAT-SUI
-  9:  '2026-06-17T19:00',  // CAN-QAT
-  10: '2026-06-17T22:00',  // BIH-SUI
-  11: '2026-06-22T21:00',  // CAN-SUI
-  12: '2026-06-22T21:00',  // BIH-QAT
-
-  // Gruppe C (bra hai mar sco)
-  13: '2026-06-14T00:00',  // BRA-MAR
-  14: '2026-06-14T03:00',  // HAI-SCO
-  15: '2026-06-18T19:00',  // BRA-HAI
-  16: '2026-06-18T22:00',  // MAR-SCO
-  17: '2026-06-23T21:00',  // BRA-SCO
-  18: '2026-06-23T21:00',  // HAI-MAR
-
-  // Gruppe D (usa par tur aus)
-  19: '2026-06-13T03:00',  // USA-PAR
-  20: '2026-06-14T06:00',  // TUR-AUS
-  21: '2026-06-18T00:00',  // USA-TUR
-  22: '2026-06-18T03:00',  // PAR-AUS
-  23: '2026-06-23T00:00',  // USA-AUS
-  24: '2026-06-23T00:00',  // PAR-TUR
-
-  // Gruppe E (ger cur ecu civ)
-  25: '2026-06-14T19:00',  // GER-CUR
-  26: '2026-06-15T01:00',  // ECU-CIV
-  27: '2026-06-19T19:00',  // GER-ECU
-  28: '2026-06-19T22:00',  // CUR-CIV
-  29: '2026-06-24T21:00',  // GER-CIV
-  30: '2026-06-24T21:00',  // CUR-ECU
-
-  // Gruppe F (ned jpn swe tun)
-  31: '2026-06-14T22:00',  // NED-JPN
-  32: '2026-06-15T04:00',  // SWE-TUN
-  33: '2026-06-19T00:00',  // NED-SWE
-  34: '2026-06-19T04:00',  // JPN-TUN
-  35: '2026-06-24T00:00',  // NED-TUN
-  36: '2026-06-24T00:00',  // JPN-SWE
-
-  // Gruppe G (bel egy irn nzl)
-  37: '2026-06-15T21:00',  // BEL-EGY
-  38: '2026-06-16T03:00',  // IRN-NZL
-  39: '2026-06-20T19:00',  // BEL-IRN
-  40: '2026-06-20T22:00',  // EGY-NZL
-  41: '2026-06-25T21:00',  // BEL-NZL
-  42: '2026-06-25T21:00',  // EGY-IRN
-
-  // Gruppe H (esp ksa cpv ury)
-  43: '2026-06-15T18:00',  // ESP-CPV
-  44: '2026-06-16T00:00',  // KSA-URY
-  45: '2026-06-20T19:00',  // ESP-KSA
-  46: '2026-06-20T22:00',  // CPV-URY
-  47: '2026-06-25T21:00',  // ESP-URY
-  48: '2026-06-25T21:00',  // CPV-KSA
-
-  // Gruppe I (fra irq nor sen)
-  49: '2026-06-16T21:00',  // FRA-SEN
-  50: '2026-06-17T00:00',  // IRQ-NOR
-  51: '2026-06-21T19:00',  // FRA-IRQ
-  52: '2026-06-21T22:00',  // NOR-SEN
-  53: '2026-06-26T21:00',  // FRA-NOR
-  54: '2026-06-26T21:00',  // IRQ-SEN
-
-  // Gruppe J (arg alg aut jor)
-  55: '2026-06-17T03:00',  // ARG-ALG
-  56: '2026-06-17T06:00',  // AUT-JOR
-  57: '2026-06-21T19:00',  // ARG-AUT
-  58: '2026-06-21T22:00',  // ALG-JOR
-  59: '2026-06-26T21:00',  // ARG-JOR
-  60: '2026-06-26T21:00',  // ALG-AUT
-
-  // Gruppe K (por col cod uzb)
-  61: '2026-06-17T19:00',  // POR-COD
-  62: '2026-06-18T04:00',  // COL-UZB
-  63: '2026-06-22T19:00',  // POR-COL
-  64: '2026-06-22T22:00',  // COD-UZB
-  65: '2026-06-27T21:00',  // POR-UZB
-  66: '2026-06-27T21:00',  // COD-COL
-
-  // Gruppe L (eng cro gha pan)
-  67: '2026-06-17T22:00',  // ENG-CRO
-  68: '2026-06-18T01:00',  // GHA-PAN
-  69: '2026-06-22T19:00',  // ENG-GHA
-  70: '2026-06-22T22:00',  // CRO-PAN
-  71: '2026-06-27T21:00',  // ENG-PAN
-  72: '2026-06-27T21:00',  // CRO-GHA
-
-  // K.o.-Phase (Schätztermine)
-  // Runde der letzten 32: 29.06–02.07
-  201:'2026-06-29T21:00', 202:'2026-06-29T21:00',
-  203:'2026-06-30T21:00', 204:'2026-06-30T21:00',
-  205:'2026-07-01T21:00', 206:'2026-07-01T21:00',
-  207:'2026-07-02T21:00', 208:'2026-07-02T21:00',
-  209:'2026-06-30T00:00', 210:'2026-06-30T03:00',
-  211:'2026-07-01T00:00', 212:'2026-07-01T03:00',
-  213:'2026-07-02T00:00', 214:'2026-07-02T03:00',
-  215:'2026-07-03T00:00', 216:'2026-07-03T03:00',
-  // Achtelfinale: 05.–08.07
-  301:'2026-07-05T21:00', 302:'2026-07-05T00:00',
-  303:'2026-07-06T21:00', 304:'2026-07-06T00:00',
-  305:'2026-07-07T21:00', 306:'2026-07-07T00:00',
-  307:'2026-07-08T21:00', 308:'2026-07-08T00:00',
-  // Viertelfinale: 11.–12.07
-  401:'2026-07-11T21:00', 402:'2026-07-11T00:00',
-  403:'2026-07-12T21:00', 404:'2026-07-12T00:00',
-  // Halbfinale: 15.–16.07
-  501:'2026-07-15T21:00', 502:'2026-07-16T21:00',
-  // Platz 3 + Finale
-  601:'2026-07-19T21:00', 701:'2026-07-19T21:00',
+  1:'2026-06-11T19:00', 2:'2026-06-12T19:00',
+  3:'2026-06-16T19:00', 4:'2026-06-16T22:00',
+  5:'2026-06-21T21:00', 6:'2026-06-21T21:00',
+  7:'2026-06-12T22:00', 8:'2026-06-13T21:00',
+  9:'2026-06-17T19:00', 10:'2026-06-17T22:00',
+  11:'2026-06-22T21:00',12:'2026-06-22T21:00',
+  13:'2026-06-14T00:00',14:'2026-06-14T03:00',
+  15:'2026-06-18T19:00',16:'2026-06-18T22:00',
+  17:'2026-06-23T21:00',18:'2026-06-23T21:00',
+  19:'2026-06-13T03:00',20:'2026-06-14T06:00',
+  21:'2026-06-18T00:00',22:'2026-06-18T03:00',
+  23:'2026-06-23T00:00',24:'2026-06-23T00:00',
+  25:'2026-06-14T19:00',26:'2026-06-15T01:00',
+  27:'2026-06-19T19:00',28:'2026-06-19T22:00',
+  29:'2026-06-24T21:00',30:'2026-06-24T21:00',
+  31:'2026-06-14T22:00',32:'2026-06-15T04:00',
+  33:'2026-06-19T00:00',34:'2026-06-19T04:00',
+  35:'2026-06-24T00:00',36:'2026-06-24T00:00',
+  37:'2026-06-15T21:00',38:'2026-06-16T03:00',
+  39:'2026-06-20T19:00',40:'2026-06-20T22:00',
+  41:'2026-06-25T21:00',42:'2026-06-25T21:00',
+  43:'2026-06-15T18:00',44:'2026-06-16T00:00',
+  45:'2026-06-20T19:00',46:'2026-06-20T22:00',
+  47:'2026-06-25T21:00',48:'2026-06-25T21:00',
+  49:'2026-06-16T21:00',50:'2026-06-17T00:00',
+  51:'2026-06-21T19:00',52:'2026-06-21T22:00',
+  53:'2026-06-26T21:00',54:'2026-06-26T21:00',
+  55:'2026-06-17T03:00',56:'2026-06-17T06:00',
+  57:'2026-06-21T19:00',58:'2026-06-21T22:00',
+  59:'2026-06-26T21:00',60:'2026-06-26T21:00',
+  61:'2026-06-17T19:00',62:'2026-06-18T04:00',
+  63:'2026-06-22T19:00',64:'2026-06-22T22:00',
+  65:'2026-06-27T21:00',66:'2026-06-27T21:00',
+  67:'2026-06-17T22:00',68:'2026-06-18T01:00',
+  69:'2026-06-22T19:00',70:'2026-06-22T22:00',
+  71:'2026-06-27T21:00',72:'2026-06-27T21:00',
+  201:'2026-06-29T21:00',202:'2026-06-29T21:00',
+  203:'2026-06-30T21:00',204:'2026-06-30T21:00',
+  205:'2026-07-01T21:00',206:'2026-07-01T21:00',
+  207:'2026-07-02T21:00',208:'2026-07-02T21:00',
+  209:'2026-06-30T00:00',210:'2026-06-30T03:00',
+  211:'2026-07-01T00:00',212:'2026-07-01T03:00',
+  213:'2026-07-02T00:00',214:'2026-07-02T03:00',
+  215:'2026-07-03T00:00',216:'2026-07-03T03:00',
+  301:'2026-07-05T21:00',302:'2026-07-05T00:00',
+  303:'2026-07-06T21:00',304:'2026-07-06T00:00',
+  305:'2026-07-07T21:00',306:'2026-07-07T00:00',
+  307:'2026-07-08T21:00',308:'2026-07-08T00:00',
+  401:'2026-07-11T21:00',402:'2026-07-11T00:00',
+  403:'2026-07-12T21:00',404:'2026-07-12T00:00',
+  501:'2026-07-15T21:00',502:'2026-07-16T21:00',
+  601:'2026-07-19T21:00',701:'2026-07-19T21:00',
 };
 
-// Gibt true zurück wenn der Anpfiff bereits erreicht (oder keine KO bekannt)
+// ─── Live-Status (wird vom Polling befüllt) ──────────────────────────────────
+// LIVE_STATE[matchId] = { live: bool, minute: string|null, h: number, a: number }
+const LIVE_STATE = {};
+let pollTimer = null;
+let anyLive = false;
+
+// Spielzeit-Fenster: 15min vor bis 120min nach Anpfiff
+function isInLiveWindow(id){
+  const ko = KICKOFFS[id]; if(!ko) return false;
+  const t = new Date(ko), now = new Date();
+  return now >= new Date(t.getTime() - 15*60*1000) &&
+         now <= new Date(t.getTime() + 120*60*1000);
+}
 function isUnlocked(id){
-  const ko = KICKOFFS[id];
-  if(!ko) return true; // unbekannt → freischalten
+  const ko = KICKOFFS[id]; if(!ko) return true;
   return new Date() >= new Date(ko);
 }
-
-// Formatiert Datum+Zeit für das Label, z.B. "13.06. 03:00"
 function fmtKickoff(id){
-  const ko = KICKOFFS[id];
-  if(!ko) return '';
-  const d = new Date(ko);
-  const day = String(d.getDate()).padStart(2,'0');
-  const mon = String(d.getMonth()+1).padStart(2,'0');
-  const h   = String(d.getHours()).padStart(2,'0');
-  const min = String(d.getMinutes()).padStart(2,'0');
-  return `${day}.${mon}. ${h}:${min}`;
+  const ko = KICKOFFS[id]; if(!ko) return '';
+  const d=new Date(ko);
+  return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}. ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
-
 function isToday(id){
-  const ko = KICKOFFS[id];
-  if(!ko) return false;
-  const d = new Date(ko), now = new Date();
-  return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth()&&d.getDate()===now.getDate();
+  const ko=KICKOFFS[id]; if(!ko) return false;
+  const d=new Date(ko),n=new Date();
+  return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate();
 }
 
-// ─── Spielplan aufbauen ───────────────────────────────────────────────────────
+// ─── Spielplan ──────────────────────────────────────────────────────────────────
 function buildGM(){
   const m=[];let id=1;
   Object.entries(GROUPS).forEach(([g,t])=>{
@@ -369,6 +331,10 @@ function buildGM(){
   return m;
 }
 const GM=buildGM();
+
+// Mapping: interne match-id → API-match-id (worldcup26.ir gibt match_id 1–104)
+// Gruppenspiele haben dieselbe Nummerierung 1–72 (Annahme, ggf. nachpflegen)
+const GM_TO_API = {}; // befüllt dynamisch beim ersten API-Abruf
 
 const KO_ROUNDS=[
   {id:'r32',label:'Sechzehntelfinale',matches:[
@@ -428,7 +394,7 @@ function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').repla
 function fl(code){return`<span class="fi fi-${esc(code)}"></span>`;}
 function gr(id){return RES[String(id)]||{h:'',a:''};}
 function sr(id,side,val){
-  if(!isUnlocked(id)) return; // Sicherheitssperre im JS
+  if(!isUnlocked(id)) return;
   const k=String(id);if(!RES[k])RES[k]={h:'',a:''};
   RES[k][side]=val===''?'':Math.max(0,Math.min(30,parseInt(val,10)));
   save();
@@ -441,12 +407,112 @@ function sp(id,side,val){
 }
 function resetMatch(id){
   if(!isUnlocked(id)) return;
-  delete RES[String(id)];
-  save();
-  rerender();
+  delete RES[String(id)]; save(); rerender();
 }
 
-// ─── Tabelle ──────────────────────────────────────────────────────────────────
+// ─── Live-Polling ──────────────────────────────────────────────────────────────
+const API_BASE = 'https://worldcup26.ir/get';
+const POLL_INTERVAL = 60000; // 60 Sekunden
+
+// Normiert Teamnamen auf interne IDs
+const NAME_MAP = {
+  'Mexico':'mex','Korea Republic':'kor','Czech Republic':'cze','South Africa':'rsa',
+  'Canada':'can','Bosnia and Herzegovina':'bih','Qatar':'qat','Switzerland':'sui',
+  'Brazil':'bra','Haiti':'hai','Morocco':'mar','Scotland':'sco',
+  'United States':'usa','Paraguay':'par','Turkey':'tur','Australia':'aus',
+  'Germany':'ger','Curacao':'cur','Ecuador':'ecu',"Cote d'Ivoire":'civ',
+  'Netherlands':'ned','Japan':'jpn','Sweden':'swe','Tunisia':'tun',
+  'Belgium':'bel','Egypt':'egy','Iran':'irn','New Zealand':'nzl',
+  'Spain':'esp','Saudi Arabia':'ksa','Cape Verde':'cpv','Uruguay':'ury',
+  'France':'fra','Iraq':'irq','Norway':'nor','Senegal':'sen',
+  'Argentina':'arg','Algeria':'alg','Austria':'aut','Jordan':'jor',
+  'Portugal':'por','Colombia':'col','DR Congo':'cod','Uzbekistan':'uzb',
+  'England':'eng','Croatia':'cro','Ghana':'gha','Panama':'pan',
+};
+
+async function fetchLiveScores(){
+  const statusEl = document.getElementById('apiStatus');
+  try {
+    const resp = await fetch(`${API_BASE}/games`, {cache:'no-store'});
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const data = await resp.json();
+    const games = Array.isArray(data) ? data : (data.games || data.matches || []);
+    let hasLive = false;
+
+    games.forEach(g=>{
+      // Status: 'live','ongoing','in_progress' = live; 'finished','completed','ended' = fertig
+      const status = (g.status||g.match_status||'').toLowerCase();
+      const isLive = status.includes('live')||status.includes('ongoing')||status.includes('in_progress')||status==='1h'||status==='2h'||status==='ht';
+      const isFinished = status.includes('finish')||status.includes('complet')||status.includes('ended')||status==='ft'||status==='aet';
+
+      // Teamnamen normieren
+      const hName = g.home_team||g.homeTeam||g.home||'';
+      const aName = g.away_team||g.awayTeam||g.away||'';
+      const hId = NAME_MAP[hName];
+      const aId = NAME_MAP[aName];
+      if(!hId||!aId) return;
+
+      // Internes Match finden
+      const match = GM.find(m=>m.home===hId&&m.away===aId);
+      if(!match) return;
+      const mid = match.id;
+
+      const hScore = parseInt(g.home_score??g.homeScore??g.score_home??-1,10);
+      const aScore = parseInt(g.away_score??g.awayScore??g.score_away??-1,10);
+      const minute = g.minute||g.match_minute||g.elapsed||null;
+
+      if(isLive){
+        hasLive = true;
+        LIVE_STATE[mid] = {live:true, minute:minute?String(minute):null};
+        if(hScore>=0&&aScore>=0){
+          RES[String(mid)] = {h:hScore, a:aScore};
+        }
+      } else if(isFinished){
+        LIVE_STATE[mid] = {live:false, minute:null};
+        if(hScore>=0&&aScore>=0){
+          RES[String(mid)] = {h:hScore, a:aScore};
+        }
+      }
+    });
+
+    save();
+    anyLive = hasLive;
+    const badge = document.getElementById('liveBadge');
+    if(badge) badge.classList.toggle('visible', hasLive);
+    if(statusEl){
+      const now = new Date();
+      statusEl.className='api-status ok';
+      statusEl.textContent=`⟳ Letzter API-Abruf: ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')} · worldcup26.ir`;
+    }
+    rerender();
+  } catch(err){
+    if(statusEl){
+      statusEl.className='api-status err';
+      statusEl.textContent=`⚠ API nicht erreichbar: ${err.message}`;
+    }
+  }
+}
+
+function startPolling(){
+  const hasLiveWindow = Object.keys(KICKOFFS).some(id=>isInLiveWindow(Number(id)));
+  if(hasLiveWindow){
+    fetchLiveScores(); // sofort
+    clearInterval(pollTimer);
+    pollTimer = setInterval(fetchLiveScores, POLL_INTERVAL);
+  } else {
+    // kein Spiel im Fenster → nur alle 5min prüfen ob bald eins startet
+    clearInterval(pollTimer);
+    pollTimer = setInterval(()=>{
+      if(Object.keys(KICKOFFS).some(id=>isInLiveWindow(Number(id)))){
+        fetchLiveScores();
+        clearInterval(pollTimer);
+        pollTimer = setInterval(fetchLiveScores, POLL_INTERVAL);
+      }
+    }, 5*60*1000);
+  }
+}
+
+// ─── Tabelle & K.o. ──────────────────────────────────────────────────────────────
 function calcStandings(gid){
   const ids=GROUPS[gid],s={};
   ids.forEach(id=>{s[id]={id,pl:0,w:0,d:0,l:0,gf:0,ga:0,pts:0};});
@@ -508,7 +574,7 @@ function renderGroups(){
   APP.innerHTML=`
     <div class="toolbar">
       <button class="btn btn-cancel" id="btnReset">🗑 Alle Ergebnisse löschen</button>
-      <span class="info-badge">🔒 = Spiel noch nicht angepfiffen &nbsp;|&nbsp; Quelle: FIFA / Sportschau.de</span>
+      <span class="info-badge">🔒 = noch nicht angepfiffen · 🔴 LIVE = automatischer Abruf läuft</span>
     </div>
     <div class="groups-grid" id="gg"></div>`;
   document.getElementById('btnReset').addEventListener('click',()=>openModal(()=>{RES={};save();rerender();}));
@@ -522,15 +588,23 @@ function renderGroups(){
     const mrows=GM.filter(m=>m.group===gid).map(m=>{
       const ht=TEAMS[m.home],at=TEAMS[m.away],r=gr(m.id);
       const unlocked = isUnlocked(m.id);
+      const live     = LIVE_STATE[m.id]?.live;
+      const minute   = LIVE_STATE[m.id]?.minute;
       const today    = isToday(m.id);
       const hasResult= r.h!==''||r.a!=='';
       const ko = fmtKickoff(m.id);
-      const koLabel = !unlocked
-        ? `<span class="match-kickoff">🔒 ${ko}</span>`
-        : today
-          ? `<span class="match-kickoff today">▶ heute ${ko}</span>`
-          : '';
-      return`<div class="match-row${unlocked?'',' locked'.trimStart()}${today?' today':''}">
+      let koLabel;
+      if(live){
+        koLabel = `<span class="live-label">🔴 LIVE${minute?' '+minute+"'":''}</span>`;
+      } else if(!unlocked){
+        koLabel = `<span class="match-kickoff">🔒 ${ko}</span>`;
+      } else if(today){
+        koLabel = `<span class="match-kickoff today">▶ heute ${ko}</span>`;
+      } else {
+        koLabel = '';
+      }
+      const rowCls = ['match-row', !unlocked?'locked':'', live?'live-now':'', today&&!live?'today':''].filter(Boolean).join(' ');
+      return`<div class="${rowCls}">
         <span class="team-name">${fl(ht.f)} ${esc(ht.n)}</span>
         <div class="score-wrap">
           <input class="score-input" type="number" min="0" max="30" inputmode="numeric"
@@ -571,7 +645,7 @@ function renderGroups(){
 
 function renderKO(){
   APP.innerHTML=`<div class="toolbar">
-    <span class="info-badge">🟩 Sieger · ⚽ Elfmeter · 🔒 Noch nicht angepfiffen · 8 beste Dritte ins Sechzehntelfinale</span>
+    <span class="info-badge">🟩 Sieger · ⚽ Elfmeter · 🔴 Live-Update · 🔒 Gesperrt</span>
   </div><div class="ko-wrap"><div class="bracket" id="br"></div></div>`;
   const br=document.getElementById('br');
   KO_ROUNDS.forEach(rnd=>{
@@ -583,6 +657,8 @@ function renderKO(){
       const hT=hId?TEAMS[hId]:null,aT=aId?TEAMS[aId]:null;
       const r=gr(m.id);
       const unlocked = isUnlocked(m.id);
+      const live     = LIVE_STATE[m.id]?.live;
+      const minute   = LIVE_STATE[m.id]?.minute;
       const today    = isToday(m.id);
       const hasResult= r.h!==''||r.a!=='';
       const isDraw=r.h!==''&&r.a!==''&&Number(r.h)===Number(r.a);
@@ -590,30 +666,35 @@ function renderKO(){
       const hWin=w&&w===hId,aWin=w&&w===aId;
       const hName=hT?`${fl(hT.f)} ${esc(hT.n)}`:`<span class="tbd">TBD</span>`;
       const aName=aT?`${fl(aT.f)} ${esc(aT.n)}`:`<span class="tbd">TBD</span>`;
-      const penH=isDraw?`<input class="ko-pen-input" type="number" min="0" max="20" inputmode="numeric" value="${r.ph!==undefined&&r.ph!==''?r.ph:''}" data-mid="${m.id}" data-side="ph" data-fk="k${m.id}ph" aria-label="Elfmeter" title="Elfmeter">`:r.ph!==undefined&&r.ph!==''?`<span class="ko-pen">(${r.ph})</span>`:``;
-      const penA=isDraw?`<input class="ko-pen-input" type="number" min="0" max="20" inputmode="numeric" value="${r.pa!==undefined&&r.pa!==''?r.pa:''}" data-mid="${m.id}" data-side="pa" data-fk="k${m.id}pa" aria-label="Elfmeter" title="Elfmeter">`:r.pa!==undefined&&r.pa!==''?`<span class="ko-pen">(${r.pa})</span>`:``;
+      const penH=isDraw?`<input class="ko-pen-input" type="number" min="0" max="20" inputmode="numeric" value="${r.ph!==undefined&&r.ph!==''?r.ph:''}" data-mid="${m.id}" data-side="ph" data-fk="k${m.id}ph" aria-label="Elfmeter">`:r.ph!==undefined&&r.ph!==''?`<span class="ko-pen">(${r.ph})</span>`:``;
+      const penA=isDraw?`<input class="ko-pen-input" type="number" min="0" max="20" inputmode="numeric" value="${r.pa!==undefined&&r.pa!==''?r.pa:''}" data-mid="${m.id}" data-side="pa" data-fk="k${m.id}pa" aria-label="Elfmeter">`:r.pa!==undefined&&r.pa!==''?`<span class="ko-pen">(${r.pa})</span>`:``;
       const koStr = fmtKickoff(m.id);
-      const koBar = koStr ? `<div class="ko-kickoff${today?' today':''}">${unlocked?(today?'▶ heute '+koStr:koStr):'🔒 '+koStr}</div>` : '';
+      let koBar;
+      if(live){
+        koBar = `<div class="ko-kickoff today">🔴 LIVE${minute?' '+minute+"'":''}</div>`;
+      } else if(koStr){
+        koBar = `<div class="ko-kickoff${today?' today':''}">${unlocked?(today?'▶ heute '+koStr:koStr):'🔒 '+koStr}</div>`;
+      } else {
+        koBar = '';
+      }
       const div=document.createElement('div');
-      div.className=`ko-match${unlocked?'':' locked'}`;
+      div.className=`ko-match${unlocked?'':' locked'}${live?' live-now':''}`;
       div.innerHTML=`
         ${koBar}
         <button class="ko-match-reset" data-rmid="${m.id}" title="Ergebnis zurücksetzen"
-          style="${hasResult&&unlocked?'':'opacity:.2;pointer-events:none'}" aria-label="Ergebnis zurücksetzen">✕</button>
+          style="${hasResult&&unlocked?'':'opacity:.2;pointer-events:none'}">✕</button>
         <div class="ko-team${hWin?' winner':''}">
           ${hName}
           <input class="ko-score-input" type="number" min="0" max="30" inputmode="numeric"
             value="${r.h!==''?r.h:''}" data-mid="${m.id}" data-side="h"
-            data-fk="k${m.id}h" ${unlocked?'':'disabled tabindex="-1"'} title="${unlocked?'':' Spiel noch nicht angepfiffen'}"
-            aria-label="${esc(hT?.n||'TBD')} Tore">
+            data-fk="k${m.id}h" ${unlocked?'':'disabled tabindex="-1""}>
           ${penH}
         </div>
         <div class="ko-team${aWin?' winner':''}">
           ${aName}
           <input class="ko-score-input" type="number" min="0" max="30" inputmode="numeric"
             value="${r.a!==''?r.a:''}" data-mid="${m.id}" data-side="a"
-            data-fk="k${m.id}a" ${unlocked?'':'disabled tabindex="-1"'} title="${unlocked?'':' Spiel noch nicht angepfiffen'}"
-            aria-label="${esc(aT?.n||'TBD')} Tore">
+            data-fk="k${m.id}a" ${unlocked?'':'disabled tabindex="-1""}>
           ${penA}
         </div>`;
       wrap.appendChild(div);
@@ -622,9 +703,8 @@ function renderKO(){
   });
   br.addEventListener('input',e=>{
     const el=e.target;if(!el.dataset.mid)return;
-    if(el.dataset.side==='ph'||el.dataset.side==='pa'){
-      sp(el.dataset.mid,el.dataset.side==='ph'?'h':'a',el.value);
-    }else{sr(el.dataset.mid,el.dataset.side,el.value);}
+    if(el.dataset.side==='ph'||el.dataset.side==='pa'){sp(el.dataset.mid,el.dataset.side==='ph'?'h':'a',el.value);}
+    else{sr(el.dataset.mid,el.dataset.side,el.value);}
     schedSave();
   });
   br.addEventListener('click',e=>{
@@ -635,17 +715,12 @@ function renderKO(){
 }
 
 function openModal(cb){
-  const ov=document.getElementById('overlay');
-  const cn=document.getElementById('modalCancel');
-  const cf=document.getElementById('modalConfirm');
+  const ov=document.getElementById('overlay'),cn=document.getElementById('modalCancel'),cf=document.getElementById('modalConfirm');
   ov.classList.add('open');cf.focus();
   function close(){ov.classList.remove('open');cn.removeEventListener('click',onNo);cf.removeEventListener('click',onYes);document.removeEventListener('keydown',onKey);}
-  function onYes(){close();cb();}
-  function onNo(){close();}
+  function onYes(){close();cb();} function onNo(){close();}
   function onKey(e){if(e.key==='Escape')close();}
-  cf.addEventListener('click',onYes,{once:true});
-  cn.addEventListener('click',onNo,{once:true});
-  document.addEventListener('keydown',onKey);
+  cf.addEventListener('click',onYes,{once:true});cn.addEventListener('click',onNo,{once:true});document.addEventListener('keydown',onKey);
 }
 
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
@@ -658,7 +733,9 @@ tb.addEventListener('click',()=>{
   document.body.dataset.theme=d?'light':'dark';
   tb.textContent=d?'🌙':'☀️';
 });
+
 renderGroups();
+startPolling(); // Live-Polling sofort starten
 </script>
 </body>
 </html>
