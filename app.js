@@ -43,60 +43,129 @@ const GROUPS = {
   K:['por','col','cod','uzb'], L:['eng','cro','gha','pan'],
 };
 
-const KICKOFFS = {
-  1:'2026-06-11T19:00', 2:'2026-06-12T19:00',
-  3:'2026-06-16T19:00', 4:'2026-06-16T22:00',
-  5:'2026-06-21T21:00', 6:'2026-06-21T21:00',
-  7:'2026-06-12T22:00', 8:'2026-06-13T21:00',
-  9:'2026-06-17T19:00', 10:'2026-06-17T22:00',
-  11:'2026-06-22T21:00',12:'2026-06-22T21:00',
-  13:'2026-06-14T00:00',14:'2026-06-14T03:00',
-  15:'2026-06-18T19:00',16:'2026-06-18T22:00',
-  17:'2026-06-23T21:00',18:'2026-06-23T21:00',
-  19:'2026-06-13T03:00',20:'2026-06-14T06:00',
-  21:'2026-06-18T00:00',22:'2026-06-18T03:00',
-  23:'2026-06-23T00:00',24:'2026-06-23T00:00',
-  25:'2026-06-14T19:00',26:'2026-06-15T01:00',
-  27:'2026-06-19T19:00',28:'2026-06-19T22:00',
-  29:'2026-06-24T21:00',30:'2026-06-24T21:00',
-  31:'2026-06-14T22:00',32:'2026-06-15T04:00',
-  33:'2026-06-19T00:00',34:'2026-06-19T04:00',
-  35:'2026-06-24T00:00',36:'2026-06-24T00:00',
-  37:'2026-06-15T21:00',38:'2026-06-16T03:00',
-  39:'2026-06-20T19:00',40:'2026-06-20T22:00',
-  41:'2026-06-25T21:00',42:'2026-06-25T21:00',
-  43:'2026-06-15T18:00',44:'2026-06-16T00:00',
-  45:'2026-06-20T19:00',46:'2026-06-20T22:00',
-  47:'2026-06-25T21:00',48:'2026-06-25T21:00',
-  49:'2026-06-16T21:00',50:'2026-06-17T00:00',
-  51:'2026-06-21T19:00',52:'2026-06-21T22:00',
-  53:'2026-06-26T21:00',54:'2026-06-26T21:00',
-  55:'2026-06-17T03:00',56:'2026-06-17T06:00',
-  57:'2026-06-21T19:00',58:'2026-06-21T22:00',
-  59:'2026-06-26T21:00',60:'2026-06-26T21:00',
-  61:'2026-06-17T19:00',62:'2026-06-18T04:00',
-  63:'2026-06-22T19:00',64:'2026-06-22T22:00',
-  65:'2026-06-27T21:00',66:'2026-06-27T21:00',
-  67:'2026-06-17T22:00',68:'2026-06-18T01:00',
-  69:'2026-06-22T19:00',70:'2026-06-22T22:00',
-  71:'2026-06-27T21:00',72:'2026-06-27T21:00',
-  201:'2026-06-29T21:00',202:'2026-06-29T21:00',
-  203:'2026-06-30T21:00',204:'2026-06-30T21:00',
-  205:'2026-07-01T21:00',206:'2026-07-01T21:00',
-  207:'2026-07-02T21:00',208:'2026-07-02T21:00',
-  209:'2026-06-30T00:00',210:'2026-06-30T03:00',
-  211:'2026-07-01T00:00',212:'2026-07-01T03:00',
-  213:'2026-07-02T00:00',214:'2026-07-02T03:00',
-  215:'2026-07-03T00:00',216:'2026-07-03T03:00',
-  301:'2026-07-05T21:00',302:'2026-07-05T00:00',
-  303:'2026-07-06T21:00',304:'2026-07-06T00:00',
-  305:'2026-07-07T21:00',306:'2026-07-07T00:00',
-  307:'2026-07-08T21:00',308:'2026-07-08T00:00',
-  401:'2026-07-11T21:00',402:'2026-07-11T00:00',
-  403:'2026-07-12T21:00',404:'2026-07-12T00:00',
-  501:'2026-07-15T21:00',502:'2026-07-16T21:00',
-  601:'2026-07-19T21:00',701:'2026-07-19T21:00',
+// ─── Spielplan: alle 72 Gruppenspiele mit echten Terminen (MESZ) ──────────────
+// Format: [id, Heimteam, Auswärtsteam, Gruppe, 'YYYY-MM-DDTHH:MM', Stadion, Stadt]
+const GM_DATA = [
+  // Gruppe A
+  [1,  'mex','rsa','A','2026-06-11T21:00','Estadio Azteca','Mexico City'],
+  [2,  'kor','cze','A','2026-06-12T04:00','Estadio Akron','Guadalajara'],
+  [25, 'cze','rsa','A','2026-06-18T18:00','Mercedes-Benz Stadium','Atlanta'],
+  [28, 'mex','kor','A','2026-06-19T03:00','Estadio Akron','Guadalajara'],
+  [53, 'cze','mex','A','2026-06-25T03:00','Estadio Azteca','Mexico City'],
+  [54, 'rsa','kor','A','2026-06-25T03:00','Estadio BBVA','Monterrey'],
+  // Gruppe B
+  [3,  'can','bih','B','2026-06-12T21:00','BMO Field','Toronto'],
+  [8,  'qat','sui','B','2026-06-13T21:00',"Levi's Stadium",'San Francisco'],
+  [26, 'sui','bih','B','2026-06-18T21:00','SoFi Stadium','Los Angeles'],
+  [27, 'can','qat','B','2026-06-19T00:00','BC Place','Vancouver'],
+  [51, 'sui','can','B','2026-06-24T21:00','BC Place','Vancouver'],
+  [52, 'bih','qat','B','2026-06-24T21:00','Lumen Field','Seattle'],
+  // Gruppe C
+  [7,  'bra','mar','C','2026-06-14T00:00','MetLife Stadium','New York/NJ'],
+  [5,  'hai','sco','C','2026-06-14T03:00','Gillette Stadium','Boston'],
+  [29, 'bra','hai','C','2026-06-20T03:00','Lincoln Financial Field','Philadelphia'],
+  [30, 'sco','mar','C','2026-06-20T00:00','Gillette Stadium','Boston'],
+  [49, 'sco','bra','C','2026-06-25T00:00','Hard Rock Stadium','Miami'],
+  [50, 'mar','hai','C','2026-06-25T00:00','Mercedes-Benz Stadium','Atlanta'],
+  // Gruppe D
+  [4,  'usa','par','D','2026-06-13T03:00','SoFi Stadium','Los Angeles'],
+  [6,  'aus','tur','D','2026-06-14T06:00','BC Place','Vancouver'],
+  [31, 'tur','par','D','2026-06-20T05:00',"Levi's Stadium",'San Francisco'],
+  [32, 'usa','aus','D','2026-06-20T21:00','Lumen Field','Seattle'],
+  [59, 'tur','usa','D','2026-06-26T04:00','SoFi Stadium','Los Angeles'],
+  [60, 'par','aus','D','2026-06-26T04:00',"Levi's Stadium",'San Francisco'],
+  // Gruppe E
+  [10, 'ger','cur','E','2026-06-14T19:00','NRG Stadium','Houston'],
+  [9,  'civ','ecu','E','2026-06-15T01:00','Lincoln Financial Field','Philadelphia'],
+  [33, 'ger','civ','E','2026-06-20T22:00','BMO Field','Toronto'],
+  [34, 'ecu','cur','E','2026-06-21T02:00','Arrowhead Stadium','Kansas City'],
+  [55, 'cur','civ','E','2026-06-25T22:00','Lincoln Financial Field','Philadelphia'],
+  [56, 'ecu','ger','E','2026-06-25T22:00','MetLife Stadium','New York/NJ'],
+  // Gruppe F
+  [11, 'ned','jpn','F','2026-06-14T22:00','AT&T Stadium','Dallas'],
+  [12, 'swe','tun','F','2026-06-15T04:00','Estadio BBVA','Monterrey'],
+  [35, 'ned','swe','F','2026-06-20T19:00','NRG Stadium','Houston'],
+  [36, 'tun','jpn','F','2026-06-21T06:00','Estadio BBVA','Monterrey'],
+  [57, 'jpn','swe','F','2026-06-26T01:00','AT&T Stadium','Dallas'],
+  [58, 'tun','ned','F','2026-06-26T01:00','Arrowhead Stadium','Kansas City'],
+  // Gruppe G
+  [16, 'bel','egy','G','2026-06-15T21:00','Lumen Field','Seattle'],
+  [15, 'irn','nzl','G','2026-06-16T03:00','SoFi Stadium','Los Angeles'],
+  [39, 'bel','irn','G','2026-06-21T21:00','SoFi Stadium','Los Angeles'],
+  [40, 'nzl','egy','G','2026-06-22T03:00','BC Place','Vancouver'],
+  [63, 'egy','irn','G','2026-06-27T05:00','Lumen Field','Seattle'],
+  [64, 'nzl','bel','G','2026-06-27T05:00','BC Place','Vancouver'],
+  // Gruppe H
+  [14, 'esp','cpv','H','2026-06-15T18:00','Mercedes-Benz Stadium','Atlanta'],
+  [13, 'ksa','ury','H','2026-06-16T00:00','Hard Rock Stadium','Miami'],
+  [38, 'esp','ksa','H','2026-06-21T18:00','Mercedes-Benz Stadium','Atlanta'],
+  [37, 'ury','cpv','H','2026-06-22T00:00','Hard Rock Stadium','Miami'],
+  [65, 'cpv','ksa','H','2026-06-27T02:00','NRG Stadium','Houston'],
+  [66, 'ury','esp','H','2026-06-27T02:00','Estadio Akron','Guadalajara'],
+  // Gruppe I
+  [17, 'fra','sen','I','2026-06-16T21:00','MetLife Stadium','New York/NJ'],
+  [18, 'irq','nor','I','2026-06-17T00:00','Gillette Stadium','Boston'],
+  [42, 'fra','irq','I','2026-06-22T23:00','Lincoln Financial Field','Philadelphia'],
+  [41, 'nor','sen','I','2026-06-23T02:00','MetLife Stadium','New York/NJ'],
+  [61, 'nor','fra','I','2026-06-26T21:00','Gillette Stadium','Boston'],
+  [62, 'sen','irq','I','2026-06-26T21:00','BMO Field','Toronto'],
+  // Gruppe J
+  [19, 'arg','alg','J','2026-06-17T03:00','Arrowhead Stadium','Kansas City'],
+  [20, 'aut','jor','J','2026-06-17T06:00',"Levi's Stadium",'San Francisco'],
+  [43, 'arg','aut','J','2026-06-22T19:00','AT&T Stadium','Dallas'],
+  [44, 'jor','alg','J','2026-06-23T05:00',"Levi's Stadium",'San Francisco'],
+  [69, 'alg','aut','J','2026-06-28T04:00','Arrowhead Stadium','Kansas City'],
+  [70, 'jor','arg','J','2026-06-28T04:00','AT&T Stadium','Dallas'],
+  // Gruppe K
+  [23, 'por','cod','K','2026-06-17T19:00','NRG Stadium','Houston'],
+  [24, 'uzb','col','K','2026-06-18T02:00','Estadio Azteca','Mexico City'],
+  [47, 'por','uzb','K','2026-06-23T19:00','NRG Stadium','Houston'],
+  [48, 'col','cod','K','2026-06-24T04:00','Estadio Akron','Guadalajara'],
+  [71, 'col','por','K','2026-06-28T01:30','Hard Rock Stadium','Miami'],
+  [72, 'cod','uzb','K','2026-06-28T01:30','Mercedes-Benz Stadium','Atlanta'],
+  // Gruppe L
+  [22, 'eng','cro','L','2026-06-17T22:00','AT&T Stadium','Dallas'],
+  [21, 'gha','pan','L','2026-06-18T01:00','BMO Field','Toronto'],
+  [45, 'eng','gha','L','2026-06-23T22:00','Gillette Stadium','Boston'],
+  [46, 'pan','cro','L','2026-06-24T01:00','BMO Field','Toronto'],
+  [67, 'pan','eng','L','2026-06-27T23:00','MetLife Stadium','New York/NJ'],
+  [68, 'cro','gha','L','2026-06-27T23:00','Lincoln Financial Field','Philadelphia'],
+];
+
+// Spielobjekte aus GM_DATA erzeugen
+const GM = GM_DATA.map(([id, home, away, group, kickoff, stadium, city]) => ({
+  id, home, away, stage: 'group', group, kickoff, stadium, city,
+}));
+
+// KICKOFFS-Map für isUnlocked / fmtKickoff
+const KICKOFFS = {};
+GM.forEach(m => { KICKOFFS[m.id] = m.kickoff; });
+
+// K.o.-Kickoffs (MESZ) – Sechzehntelfinale bis Finale
+const KO_KICKOFFS = {
+  // Sechzehntelfinale
+  201:'2026-06-28T21:00', 202:'2026-06-29T22:30',
+  203:'2026-06-29T03:00', 204:'2026-06-29T19:00',
+  205:'2026-06-30T23:00', 206:'2026-06-30T19:00',
+  207:'2026-07-01T03:00', 208:'2026-07-01T18:00',
+  209:'2026-07-01T23:00', 210:'2026-07-02T21:00',
+  211:'2026-07-03T01:00', 212:'2026-07-02T21:00',
+  213:'2026-07-03T05:00', 214:'2026-07-04T00:00',
+  215:'2026-07-04T02:30', 216:'2026-07-03T20:00',
+  // Achtelfinale
+  301:'2026-07-04T23:00', 302:'2026-07-04T19:00',
+  303:'2026-07-05T22:00', 304:'2026-07-06T02:00',
+  305:'2026-07-06T21:00', 306:'2026-07-07T02:00',
+  307:'2026-07-07T18:00', 308:'2026-07-07T22:00',
+  // Viertelfinale
+  401:'2026-07-09T22:00', 402:'2026-07-10T21:00',
+  403:'2026-07-11T23:00', 404:'2026-07-12T03:00',
+  // Halbfinale
+  501:'2026-07-14T21:00', 502:'2026-07-15T21:00',
+  // Platz 3 + Finale
+  601:'2026-07-18T23:00', 701:'2026-07-19T21:00',
 };
+Object.assign(KICKOFFS, KO_KICKOFFS);
 
 const NAME_MAP = {
   'Mexico':'mex','Korea Republic':'kor','Czech Republic':'cze','South Africa':'rsa',
@@ -160,17 +229,6 @@ const KO_ROUNDS = [
     {id:701,home:{src:'ko',m:501},away:{src:'ko',m:502}},
   ]},
 ];
-
-// ─── Spielplan aufbauen ───────────────────────────────────────────────────────
-function buildGM() {
-  const m = []; let id = 1;
-  Object.entries(GROUPS).forEach(([g, t]) => {
-    [[0,1],[2,3],[0,2],[1,3],[0,3],[1,2]].forEach(([a,b]) =>
-      m.push({id:id++,stage:'group',group:g,home:t[a],away:t[b]}));
-  });
-  return m;
-}
-const GM = buildGM();
 
 // ─── Storage ──────────────────────────────────────────────────────────────────
 let RES = {};
@@ -391,7 +449,11 @@ function renderGroups() {
       return `<tr class="${cls}"><td>${fl(T.f)} ${esc(T.n)}</td><td>${t.pl}</td><td>${t.pts}</td><td>${t.gf}:${t.ga}</td><td>${t.gd > 0 ? '+' : ''}${t.gd}</td></tr>`;
     }).join('');
 
-    const mrows = GM.filter(m => m.group === gid).map(m => {
+    // Spiele chronologisch sortiert anzeigen
+    const groupMatches = GM.filter(m => m.group === gid)
+      .sort((a,b) => new Date(a.kickoff) - new Date(b.kickoff));
+
+    const mrows = groupMatches.map(m => {
       const ht = TEAMS[m.home], at = TEAMS[m.away], r = gr(m.id);
       const unlocked = isUnlocked(m.id);
       const live = LIVE_STATE[m.id]?.live;
@@ -403,7 +465,7 @@ function renderGroups() {
       if (live)           koLabel = `<span class="live-label">🔴 LIVE${minute ? ' '+minute+"'" : ''}</span>`;
       else if (!unlocked) koLabel = `<span class="match-kickoff">🔒 ${ko}</span>`;
       else if (today)     koLabel = `<span class="match-kickoff today">▶ heute ${ko}</span>`;
-      else                koLabel = '';
+      else                koLabel = `<span class="match-kickoff done">${ko}</span>`;
       const rowCls = ['match-row', !unlocked?'locked':'', live?'live-now':'', today&&!live?'today':''].filter(Boolean).join(' ');
       return `<div class="${rowCls}">
         <span class="team-name">${fl(ht.f)} ${esc(ht.n)}</span>
@@ -477,7 +539,7 @@ function renderKO() {
         : r.pa !== undefined && r.pa !== '' ? `<span class="ko-pen">(${r.pa})</span>` : '';
       const koStr = fmtKickoff(m.id);
       let koBar;
-      if (live)       koBar = `<div class="ko-kickoff today">🔴 LIVE${minute?' '+minute+"'":''}</div>`;
+      if (live)       koBar = `<div class="ko-kickoff today">🔴 LIVE${minute?' '+minute+"'":''}}</div>`;
       else if (koStr) koBar = `<div class="ko-kickoff${today?' today':''}">${unlocked?(today?'▶ heute '+koStr:koStr):'🔒 '+koStr}</div>`;
       else            koBar = '';
 
@@ -539,7 +601,7 @@ function openModal(cb) {
   document.addEventListener('keydown', onKey);
 }
 
-// ─── PWA: Service Worker registrieren ─────────────────────────────────────────
+// ─── PWA: Service Worker ───────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
@@ -562,7 +624,6 @@ document.getElementById('installBtn')?.addEventListener('click', async () => {
   const { outcome } = await deferredPrompt.userChoice;
   deferredPrompt = null;
   document.getElementById('installBanner')?.classList.remove('visible');
-  console.log('[PWA] Install outcome:', outcome);
 });
 document.getElementById('closeBanner')?.addEventListener('click', () => {
   document.getElementById('installBanner')?.classList.remove('visible');
