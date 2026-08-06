@@ -127,16 +127,27 @@ async function fetchMatches(){
 }
 
 // ─── Live-Badge: zeigt an, wenn gerade ein KSC-Spiel live läuft ─────────────
+function getLiveKscMatch(){
+  const now = Date.now();
+  return MATCHES.find(m => {
+    if (m.matchIsFinished) return false;
+    const start = new Date(m.matchDateTime).getTime();
+    // Nur echte Live-Phase (Anpfiff bis ~2h15min), nicht "heute, aber später"
+    if (start > now) return false;
+    return now <= start + 2.2*60*60*1000;
+  }) || null;
+}
+function liveScoreOf(m){
+  // openligaDB: letzter matchResult = aktueller Spielstand (auch live)
+  const r = m?.matchResults?.[m.matchResults.length-1];
+  if (!r) return '';
+  const kscHome = m.team1?.teamName === 'Karlsruher SC';
+  return kscHome ? `${r.pointsTeam1}:${r.pointsTeam2}` : `${r.pointsTeam2}:${r.pointsTeam1}`;
+}
 function updateLiveBadge(){
   const badge = document.getElementById('liveBadge');
   if (!badge) return;
-  const now = Date.now();
-  const live = MATCHES.some(m => {
-    if (m.matchIsFinished) return false;
-    const start = new Date(m.matchDateTime).getTime();
-    return start <= now && now <= start + 2.2*60*60*1000; // Anpfiff + ~2h15min
-  });
-  badge.classList.toggle('visible', live);
+  badge.classList.toggle('visible', !!getLiveKscMatch());
 }
 
 // ─── Rendering ───────────────────────────────────────────────────────────────
@@ -158,16 +169,20 @@ async function renderOverview(){
     last = kscMatches.filter(m => m.matchIsFinished)
       .sort((a,b) => new Date(b.matchDateTime) - new Date(a.matchDateTime))[0] || null;
   }
-  const latestNews = [...NEWS, ...(LIVE_NEWS || [])]
-    .sort((a,b) => new Date(b.datum || 0) - new Date(a.datum || 0)).slice(0,3);
-  const newsLink = n => n.link ? `<a href="${n.link}" target="_blank" rel="noopener">${esc(n.titel)}</a>` : esc(n.titel);
+  // liveNow zählt als "nächstes Spiel" und zeigt den Live-Stand
+    const liveNow = getLiveKscMatch();
+    if (liveNow) next = liveNow;
+    const latestNews = [...NEWS, ...(LIVE_NEWS || [])]
+      .sort((a,b) => new Date(b.datum || 0) - new Date(a.datum || 0)).slice(0,3);
+    const newsLink = n => n.link ? `<a href="${n.link}" target="_blank" rel="noopener">${esc(n.titel)}</a>` : esc(n.titel);
 
   const vs = m => m.team2 // openligaDB-Form
     ? { home: m.team1?.teamName === 'Karlsruher SC', opp: (m.team1?.teamName === 'Karlsruher SC' ? m.team2?.teamName : m.team1?.teamName), score: (() => { const r = m.matchResults?.[m.matchResults.length-1]; return r ? (m.team1?.teamName === 'Karlsruher SC' ? `${r.pointsTeam1}:${r.pointsTeam2}` : `${r.pointsTeam2}:${r.pointsTeam1}`) : ''; })() }
     : { home: m.home, opp: m.opponent, score: m.score || '' };
 
-  const nextBox = next ? `<div class="card"><h3>Nächstes Spiel</h3><p class="next-match">${fmtDate(next.date || next.matchDateTime)} · ${vs(next).home ? 'Heim' : 'Auswärts'} vs <strong>${esc(vs(next).opp)}</strong></p></div>` : '';
-  const lastBox = last ? `<div class="card"><h3>Letztes Spiel</h3><p class="next-match">${vs(last).home ? 'Heim' : 'Auswärts'} vs <strong>${esc(vs(last).opp)}</strong> · <span class="score">${vs(last).score}</span></p></div>` : '';
+  const liveBox = liveNow ? `<div class="card live-card"><h3>🔴 Live</h3><p class="next-match">${vs(liveNow).home ? 'Heim' : 'Auswärts'} vs <strong>${esc(vs(liveNow).opp)}</strong> · <span class="score big">${liveScoreOf(liveNow)}</span></p></div>` : '';
+    const nextBox = next && !liveNow ? `<div class="card"><h3>Nächstes Spiel</h3><p class="next-match">${fmtDate(next.date || next.matchDateTime)} · ${vs(next).home ? 'Heim' : 'Auswärts'} vs <strong>${esc(vs(next).opp)}</strong></p></div>` : '';
+    const lastBox = last ? `<div class="card"><h3>Letztes Spiel</h3><p class="next-match">${vs(last).home ? 'Heim' : 'Auswärts'} vs <strong>${esc(vs(last).opp)}</strong> · <span class="score">${vs(last).score}</span></p></div>` : '';
 
   APP.innerHTML = `<section class="overview">
     <h2>Karlsruher SC</h2>
@@ -177,9 +192,11 @@ async function renderOverview(){
       <span class="stat">S/U/N ${ksc.won}/${ksc.draw}/${ksc.lost}</span>
     </div>` : '<p>Tabelle wird geladen…</p>'}
 
-    ${nextBox}
+    ${liveBox}
 
-    ${lastBox}
+        ${nextBox}
+
+        ${lastBox}
 
     <div class="card">
       <h3>Neueste News</h3>
@@ -198,9 +215,15 @@ function renderMatches(){
         const future = sorted.filter(m => !m.finished);
     const past = sorted.filter(m => m.finished).sort((a,b) => b.day - a.day);
     const formatRow = f => {
-      const when = f.finished ? '✅' : (f.home ? '🏠' : '🚌');
-      return `<li class="match-item ${f.finished?'':'upcoming'}"><span class="team">SP ${f.day}: ${f.home?'Karlsruher SC':'Auswärts'} – ${esc(f.opponent)}</span><span class="meta">${fmtDate(f.date)} ${when}${f.score ? ' '+f.score : ''}</span></li>`;
-    };
+          // Live-Spielstadtauglichkeit: aktuellen Spieltag mit Live-Torstatus ersetzen
+          const live = getLiveKscMatch();
+          let label = f.finished ? '✅' : (f.home ? '🏠' : '🚌');
+          let score = f.score || '';
+          if (!f.finished && live && f.home === (live.team1?.teamName === 'Karlsruher SC') && f.opponent === (live.team1?.teamName === 'Karlsruher SC' ? live.team2?.teamName : live.team1?.teamName)){
+            label = '🔴 LIVE'; score = liveScoreOf(live);
+          }
+          return `<li class="match-item ${f.finished?'':'upcoming'}"><span class="team">SP ${f.day}: ${f.home?'Karlsruher SC':'Auswärts'} – ${esc(f.opponent)}</span><span class="meta">${fmtDate(f.date)} ${label}${score ? ' <b class="live-score">'+score+'</b>' : ''}</span></li>`;
+        };
     APP.innerHTML = `<section class="matches">
       <h2>KSC Spielplan 2026/27</h2>
       <div class="match-stats">${future.length} ausstehend · ${past.length} gespielt</div>

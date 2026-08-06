@@ -207,6 +207,10 @@ main{padding:16px;max-width:1400px;margin:0 auto}
 .card h3{margin:0 0 8px;font-size:1.1rem;color:var(--muted);}
 .next-match{font-size:1.2rem;font-weight:600;margin:0;}
 .score{color:var(--accent);font-weight:700;}
+.score.big{font-size:2.2rem;display:inline-block;margin-left:6px;}
+.live-card{border:2px solid var(--red);}
+.live-card h3{color:var(--red);}
+.live-score{color:var(--red);font-size:1.05rem;}
 .news-list.compact li{margin-bottom:8px;}
 
 /* Standings: Tabelle */
