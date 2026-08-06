@@ -7,3 +7,6 @@ yarn-error.log*
 .vscode/
 dist/
 build/
+
+server.log
+server-err.log

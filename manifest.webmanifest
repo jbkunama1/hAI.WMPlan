@@ -1,11 +1,11 @@
 {
-  "name": "WM 2026 Turnierplan",
-  "short_name": "WM 2026",
-  "description": "FIFA WM 2026 – Gruppenphase & K.o.-Turnierbaum mit Live-Updates",
+  "name": "KSC Fan Dashboard",
+  "short_name": "KSC",
+  "description": "KSC 2. Bundesliga – Spieltage, Tabelle, Kader & News live",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0d1117",
-  "theme_color": "#58a6ff",
+  "theme_color": "#1f5caf",
   "lang": "de",
   "icons": [
     { "src": "logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
