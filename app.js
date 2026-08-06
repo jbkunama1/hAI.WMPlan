@@ -1,7 +1,7 @@
 'use strict';
 
 // Konstanten
-const THEME_KEY = 'wm2026_theme';
+const THEME_KEY = 'ksc_theme';
 const POLL_INTERVAL = 60000;
 
 // API: openligaDB (2. Bundesliga)

@@ -10,5 +10,7 @@ COPY app.js     /usr/share/nginx/html/
 COPY sw.js      /usr/share/nginx/html/
 COPY manifest.webmanifest /usr/share/nginx/html/
 COPY logo.png   /usr/share/nginx/html/
+COPY data/ksc-data.js /usr/share/nginx/html/data/ksc-data.js
 
 EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

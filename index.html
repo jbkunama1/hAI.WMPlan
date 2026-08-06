@@ -4,55 +4,35 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<!-- CSP: openligaDB (Live-Daten) + flag-icons CDN erlaubt -->
+<!-- CSP: openligaDB (Live-Daten) erlaubt -->
 <meta http-equiv="Content-Security-Policy"
-  content="default-src 'self'; style-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; font-src 'self' https://cdn.jsdelivr.net; img-src * data: blob:; script-src 'self' 'unsafe-inline'; connect-src https://www.openligadb.de;">
+  content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src * data: blob:; script-src 'self' 'unsafe-inline'; connect-src https://www.openligadb.de;">
 <meta name="theme-color" content="#1f5caf">
-<meta name="description" content="Interaktiver FIFA WM 2026 Turnierplan – Gruppenphase, K.o.-Baum, Live-Scores, offline-fähig (PWA). 48 Teams, 12 Gruppen, 6 K.o.-Runden. Self-hosted, kein Framework.">
+<meta name="description" content="KSC – Fan Dashboard: 2. Bundesliga, Kader, News, Live-Ergebnisse. PWA, offline-fähig.">
 <meta name="author" content="Daniel Lienhard">
 <meta name="application-name" content="hAI.WMPlan">
-<meta name="keywords" content="WM 2026, FIFA World Cup 2026, Turnierplan, Gruppenphase, K.o.-Baum, Fussball, Self-hosted">
+<meta name="keywords" content="KSC, Karlsruher SC, 2. Bundesliga, Fan Dashboard, Kader, News">
 <!-- Open Graph -->
-<meta property="og:title" content="hAI.WMPlan – FIFA WM 2026 Turnierplan">
-<meta property="og:description" content="Interaktiver WM-2026-Turnierplan: 48 Teams, 12 Gruppen, K.o.-Baum, Live-Scores, PWA.">
-<meta property="og:image" content="logo.png">
+<meta property="og:title" content="KSC – Fan Dashboard">
+<meta property="og:description" content="KSC-Dashboard: 2. Bundesliga, Kader, News, Live-Ergebnisse – PWA.">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="de_DE">
-<!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="hAI.WMPlan – FIFA WM 2026">
-<meta name="twitter:description" content="Interaktiver WM-Turnierplan mit Live-Scores und K.o.-Baum.">
-<meta name="twitter:image" content="logo.png">
-<title>KSC – Fan Dashboard | hAI.WMPlan</title>
+<title>KSC – Fan Dashboard</title>
 <link rel="icon" href="logo.png">
 <link rel="apple-touch-icon" href="logo.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="style.css">
-<!-- flag-icons: OHNE integrity-Check, damit kein Hash-Mismatch Flaggen blockiert -->
-<link rel="stylesheet"
-  href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/css/flag-icons.min.css"
-  crossorigin="anonymous">
 <!-- Theme-FOUC verhindern -->
 <script>
   (function(){
-    const t = localStorage.getItem('wm2026_theme') || 'ksc';
+    const t = localStorage.getItem('ksc_theme') || 'ksc';
     document.documentElement.dataset.theme = t;
     document.body && (document.body.dataset.theme = t);
   })();
 </script>
 </head>
 <body>
-
-<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-  <div class="modal">
-    <h3 id="modalTitle">Alle Ergebnisse löschen?</h3>
-    <p>Diese Aktion kann nicht rückgängig gemacht werden.</p>
-    <div class="modal-btns">
-      <button class="btn btn-cancel" id="modalCancel">Abbrechen</button>
-      <button class="btn btn-danger" id="modalConfirm">Ja, löschen</button>
-    </div>
-  </div>
-</div>
 
 <!-- PWA Install-Banner -->
 <div id="installBanner" aria-live="polite">
