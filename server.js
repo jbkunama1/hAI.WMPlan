@@ -19,6 +19,62 @@ const MIME = {
   '.ico':'image/x-icon', '.webmanifest':'application/manifest+json', '.txt':'text/plain',
 };
 
+// ── Scrape-Quellen für Kader + Spielplan ─────────────────────────
+const SCRAPE_SOURCES = {
+  squad:   'https://www.ksc.de/profis/team/spieler',
+  spielplan:'https://www.ksc.de/profis/saison/spielplan',
+};
+
+// Kader: <div class="h1 playernumber">NR</div> ... <div class="h2 name">NAME …
+// liefert Nummer, Name, Geburtsdatum, Nationalität, Größe.
+function parseSquad(html){
+  const out = [];
+  const blocks = html.split('playerwrap"').slice(1);
+  for (const b of blocks){
+    const nr = (b.match(/class="h1 playernumber">(\d+)</) || [])[1];
+    const name = (b.match(/class="h2 name">\s*([^<]+?)</) || [])[1];
+    const birth = (b.match(/Geburtstag:.*?(\d{2}\.\d{2}\.\d{4})/) || [])[1];
+    const natRaw = (b.match(/Nationalität:[^<]*<\/strong>\s*([^<]+)/) || [])[1];
+    const height = (b.match(/Größe:.*?(\d+)\s*cm/) || [])[1];
+    if (!nr || !name) continue;
+    // Maskottchen (Willi Wildpark, Nr. 94) herausfiltern
+    if (/wildpark/i.test(name)) continue;
+    out.push({
+      nr: +nr,
+      name: decode(name).replace(/\s+/g,' ').trim(),
+      birth: birth||'',
+      nat: natRaw ? decode(natRaw).replace(/&nbsp;|\s+/g,' ').trim() : '',
+      height: height ? +height : null,
+    });
+  }
+  return out;
+}
+
+// Spielplan: <td class="day"><span>N</span></td><td class="team match">…<span class="teamname">TEAM</span>…<div class="vs">:</div>…<span class="teamname">TEAM2</span>…</td><td class="result"><span>-:-</span></td><td class="date"><span>TT.MM.JJ HH:MMh</span></td>
+function parseFixtures(html){
+  const out = [];
+  const rows = html.split('<tr>').slice(1);
+  for (const r of rows){
+    const day = (r.match(/class="day"><span>(\d+)</) || [])[1];
+    if (!day) continue;
+    const teams = [...r.matchAll(/class="teamname">([^<]+)</g)].map(m => decode(m[1]).trim());
+    if (teams.length < 2) continue;
+    const scoreRaw = (r.match(/class="result"><span>([-:\d]+)</) || [])[1];
+    const dateRaw = (r.match(/class="date"><span>([^<]+)</) || [])[1]?.trim();
+    const dm = dateRaw && dateRaw.match(/(\d{2})\.(\d{2})\.(\d{2})\s+(\d{2}):(\d{2})/);
+    const home = teams[0] === 'Karlsruher SC';
+    out.push({
+      day: +day,
+      home,
+      opponent: home ? teams[1] : teams[0],
+      date: dm ? `20${dm[3]}-${dm[2]}-${dm[1]}T${dm[4]}:${dm[5]}:00` : (dateRaw||''),
+      score: scoreRaw && scoreRaw !== '-:-' ? scoreRaw : null,
+      finished: !!scoreRaw && scoreRaw !== '-:-',
+    });
+  }
+  return out;
+}
+
 // ── News-Quellen (List-Seiten, Reihenfolge = Team-Zuordnung) ──
 // Hinweis: ksc.de betreibt aktuell KEINE eigene Frauen-Mannschaft/Women-Region,
 // daher wird nur Profis + Akademie automatisch geholt. Frauen-News (falls sie
@@ -76,14 +132,31 @@ async function fetchNews(){
 
 const server = http.createServer(async (req, res) => {
   const url = req.url.split('?')[0];
+  const json = (code, data, isErr=false) => {
+    res.writeHead(code, {'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':'*'});
+    res.end(JSON.stringify(isErr ? {error:data} : data));
+  };
   if (url === '/api/news'){
     try {
-      const news = await fetchNews();
-      res.writeHead(200, {'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':'*'});
-      res.end(JSON.stringify(news));
+      json(200, await fetchNews());
     } catch (e) {
-      res.writeHead(502, {'Content-Type':'text/plain'});
-      res.end('fetch news failed: '+e.message);
+      json(502, 'fetch news failed: '+e.message, true);
+    }
+    return;
+  }
+  if (url === '/api/fixtures'){
+    try {
+      json(200, parseFixtures(await get(SCRAPE_SOURCES.spielplan)));
+    } catch (e) {
+      json(502, 'fetch fixtures failed: '+e.message, true);
+    }
+    return;
+  }
+  if (url === '/api/squad'){
+    try {
+      json(200, parseSquad(await get(SCRAPE_SOURCES.squad)));
+    } catch (e) {
+      json(502, 'fetch squad failed: '+e.message, true);
     }
     return;
   }
