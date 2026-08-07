@@ -1,176 +1,84 @@
-# ⚽ hAI.WMPlan — FIFA WM 2026 Turnierplan Webapp
+# 🔵 KSC – Fan Dashboard
 
 <p align="center">
-  <img src="logo.png" alt="hAI.WMPlan Logo" width="180">
+  <img src="logo.png" alt="KSC Logo" width="180">
 </p>
 
 <p align="center">
-  <b>Interaktiver WM-2026-Turnierplan — live, lokal, selbst gehostet, offline-fähig.</b><br>
-  48 Teams · 12 Gruppen · 6 K.o.-Runden · Live-Scores · PWA · Docker-ready
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Lizenz-MIT-22c55e?style=for-the-badge" alt="MIT">
-  <img src="https://img.shields.io/badge/Vanilla_JS-ES2022-facc15?style=for-the-badge&logo=javascript&logoColor=black">
-  <img src="https://img.shields.io/badge/PWA-Offline--ready-8b5cf6?style=for-the-badge&logo=pwa">
-  <img src="https://img.shields.io/badge/Docker-nginx%3Aalpine-2496ED?style=for-the-badge&logo=docker&logoColor=white">
-  <img src="https://img.shields.io/badge/Build-nicht%20n%C3%B6tig-10b981?style=for-the-badge">
-</p>
-
-<p align="center">
-  <a href="README.en.md">🇬🇧 English version</a>
+  <b>Alles zum Karlsruher SC auf einen Blick – 2. Bundesliga, Kader, News, Live.</b><br>
+  PWA · Live-Daten · Blau-Weiß & Badisch Rot-Gelb
 </p>
 
 ---
 
-## 🌍 Was ist hAI.WMPlan?
+## ⚽ Was ist das?
 
-**hAI.WMPlan** ist eine vollständig selbst gehostete, interaktive Webapp für den **FIFA WM 2026**-Spielplan (Kanada 🇨🇦 · Mexiko 🇲🇽 · USA 🇺🇸).
-
-Ergebnisse eintragen — die App berechnet **automatisch** Gruppentabellen, ermittelt die Weiterkommer und befüllt den **K.o.-Baum bis zum Finale**. Live-Scores werden alle 60 Sekunden per API aktualisiert. Als **PWA** lässt sich die App direkt auf dem Home-Screen installieren und funktioniert offline.
-
----
+Ein schlankes, selbst gehostetes **Fan-Dashboard für den Karlsruher SC**. Täglich die News checken, Spieltage verfolgen und den Kader im Blick behalten – auf dem Handy installierbar, offline-fähig, ohne Account.
 
 ## ✨ Features
 
-### 🏟️ Gruppenphase
-- 48 Teams mit echten Länderflaggen (flag-icons 7.2.3 via jsDelivr + SRI)
-- 12 Gruppen A–L mit je 4 Teams und 6 Spielen
-- Automatische Tabelle: Punkte, Tore, Tordifferenz, Spielanzahl
-- 🟢 Qualifiziert (Platz 1+2) · 🔵 Möglicherweise weiter (Platz 3)
-- 🔒 Sperre vor Anpfiff · 📅 Heutige Spiele farblich hervorgehoben
+### 🏟️ Übersicht
+- KSC-Platz, Punkte, Siege/Unentschieden/Niederlagen (openligaDB)
+- Nächster Spieltag: Gegner, Datum, Stadion
+- Neueste News auf einen Blick
 
-### 🏆 K.o.-Phase
-```
-Sechzehntelfinale → Achtelfinale → Viertelfinale → Halbfinale → Finale
-     (16 Spiele)       (8 Spiele)      (4 Spiele)    (2 Spiele)   🥇
-```
-- Sieger automatisch in die nächste Runde weitergereicht
-- Elfmeter-Eingabe bei Unentschieden
-- Spiel um Platz 3 · Finale mit 🏆-Markierung
+### 🗓️ Spieltage (2. Bundesliga)
+- Kompletter KSC-Spielplan der Saison, live aus **openligaDB**
+- Ausstehende, laufende & beendete Spiele, mit LIVE-Status
+- Automatische Aktualisierung (Polling)
 
-### 🔴 Live-Polling (worldcup26.ir)
-| Status | Verhalten |
-|---|---|
-| Kein Spiel im Fenster | Alle 5 Min prüfen |
-| 15 Min vor Anpfiff | 60s-Polling startet |
-| Spiel läuft | Pulsierender roter Rahmen + Minute |
-| Spiel beendet | Endstand gespeichert |
+### 👥 Kader
+- **Profis** · **Amateure** · **Frauen** in einem Tab
+- Spielernummer, Position, Status (fit / verletzt / gesperrt)
 
-### 📱 PWA / Offline
-- **Service Worker** (Cache-First für Assets, Network-First für API)
-- **Installierbar** via Browser-Banner oder `📲 App installieren`-Button
-- Funktioniert **komplett offline** (eingegebene Ergebnisse bleiben erhalten)
-- Home-Screen-Icon, Splash-Screen, `display: standalone`
+### 📰 News
+- **Live-News** direkt von ksc.de (Profis + Akademie) über den lokalen News-Proxy
+- Manuell gepflegte News (inkl. Frauen) als Fallback – auch offline
+- „live"-Tag für automatisch geladene Meldungen
 
-### 💻 Responsive Design
-| Breakpoint | Layout |
-|---|---|
-| ≥ 1280px (Wide) | 4 Spalten Gruppen-Grid |
-| 768–1279px (Desktop) | 3 Spalten |
-| 480–767px (Tablet) | 2 Spalten, kompakter Header |
-| < 480px (Mobile) | 1 Spalte, Touch-optimiert |
-| `pointer: coarse` | Größere Tap-Targets (min. 36px) |
-| Landscape Phone | Flacherer Header |
+### 🎨 Themes
+- 🔵 **KSC Blau-Weiß** (Standard) · 🔴 **Badisch Rot-Gelb** · 🌙 dunkel · ☀️ hell
 
-### 🛡️ Sicherheit & Qualität
-- `Content-Security-Policy` im HTML
-- SRI-Hash für externe CSS (flag-icons)
-- XSS-Escaping aller dynamischen Inhalte
-- ARIA-Labels, Keyboard-Navigation, Focus-Management
-- Print-optimiertes CSS
-
----
+### 📱 PWA
+- Installierbar auf dem Home-Screen, funktioniert offline
+- Service Worker mit Cache-First für Assets
 
 ## 📁 Projektstruktur
 
 ```
 hAI.WMPlan/
-├── index.html            ← HTML-Gerüst + Meta + CSP
-├── style.css             ← Komplettes CSS (Dark/Light, Responsive, Print)
-├── app.js                ← Gesamte App-Logik (Teams, Standings, K.o., Live, PWA)
-├── sw.js                 ← Service Worker (Cache-First, Offline)
+├── index.html            ← HTML + CSP + Theme-FOUC-Guard
+├── style.css             ← Themes (ksc/badisch/dark/light), Responsive, Print
+├── app.js                ← App-Logik (Tabs, Daten, Polling, News)
+├── server.js             ← Kleiner Server: statisch + News-Proxy (/api/news)
+├── data/ksc-data.js      ← Gepflegter Kader + Fallback-News
+├── sw.js                 ← Service Worker (Offline)
 ├── manifest.webmanifest  ← PWA-Manifest
-├── logo.png              ← App-Logo (Header, Favicon, PWA-Icon)
-├── Dockerfile            ← Nginx-Alpine-Image
-├── nginx.conf            ← Produktions-Nginx (Gzip, Caching, Health)
-├── docker-compose.yml    ← Portainer-Stack
-└── README.md             ← Diese Datei
+└── logo.png              ← Logo
 ```
 
----
+## 🚀 Start
 
-## 🚀 Schnellstart
-
-### Option 1 — Browser direkt
+### Lokal (empfohlen – für Live-News)
 ```bash
-git clone https://github.com/jbkunama1/hAI.WMPlan.git
-open hAI.WMPlan/index.html
+node server.js
+# → http://localhost:8123
 ```
-> Hinweis: Service Worker benötigt HTTPS oder `localhost`. Über `file://` sind PWA-Features deaktiviert.
+Ohne `server.js` läuft die App auch direkt per `index.html`, dann ohne Live-News vom ksc.de-Proxy.
 
-### Option 2 — Docker (lokal bauen)
+### Docker / Nginx
 ```bash
-git clone https://github.com/jbkunama1/hAI.WMPlan.git
-cd hAI.WMPlan
 docker compose up -d --build
-# → http://localhost:8026
 ```
+> Hinweis: Der News-Proxy (`/api/news`) wird nur vom Node-Server bereitgestellt; unter Nginx erscheinen die manuell gepflegten News.
 
-### Option 3 — Portainer Stack (empfohlen)
-1. Portainer → **Stacks → Add stack**
-2. **Repository** → `https://github.com/jbkunama1/hAI.WMPlan`
-3. Compose path: `docker-compose.yml`
-4. Optional: Environment Variable `WM_PORT=8026`
-5. **Deploy the stack**
+## 🌐 Datenquellen
 
-### Option 4 — Bestehender Nginx-Server
-```nginx
-server {
-  listen 80;
-  server_name wm.deine-domain.de;
-  root /var/www/hAI.WMPlan;
-  index index.html;
-  location / { try_files $uri $uri/ /index.html; }
-}
-```
-
----
-
-## 🌐 API & Live-Daten
-
-| Eigenschaft | Wert |
+| Daten | Quelle |
 |---|---|
-| Endpoint | [worldcup26.ir/get/games](https://worldcup26.ir/get/games) |
-| Kosten | kostenlos, kein API-Key |
-| Poll-Intervall | 60 Sekunden |
-| Fallback | Manuelle Eingabe immer möglich |
-
----
-
-## 🛠️ Technologie
-
-| Bereich | Technologie |
-|---|---|
-| Markup | HTML5 |
-| Styling | CSS3 (Custom Properties, Grid, Flexbox) |
-| Logik | Vanilla JS (ES2022) |
-| Flaggen | [flag-icons 7.2.3](https://github.com/lipis/flag-icons) |
-| Offline | Service Worker (Cache-First) |
-| PWA | Web App Manifest |
-| Persistenz | `localStorage` |
-| Hosting | Nginx Alpine / Docker / beliebiger Webserver |
-
----
-
-## 🤝 Credits
-
-- Gruppen & Teams: **FIFA / Sportschau.de**, Stand 12.06.2026
-- Flaggen: [flag-icons](https://github.com/lipis/flag-icons) — Panayiotis Lipiridis (MIT)
-- Live-Daten: [worldcup26.ir](https://worldcup26.ir)
-- Entwickelt mit 🤖 [Perplexity AI](https://perplexity.ai) + ❤️ von Daniel Lienhard
-
----
+| Spieltage & Tabelle | [openligaDB](https://www.openligadb.de) (kostenlos, kein Key) |
+| News (live) | ksc.de Profis + Akademie (über `server.js`-Proxy) |
+| Kader & Fallback-News | `data/ksc-data.js` (gepflegt) |
 
 ## 📄 Lizenz
 
@@ -179,6 +87,5 @@ MIT License — frei verwendbar, veränderbar, weitergabe erlaubt.
 ---
 
 <p align="center">
-  Made with ⚽ · 🔴 · 🤖 · für die WM 2026<br>
-  <b>Kanada 🇨🇦 · Mexiko 🇲🇽 · USA 🇺🇸</b>
+  Made with 🔵 · 🤖 · ❤️ für den Karlsruher SC
 </p>

@@ -26,7 +26,7 @@ services:
       # Traefik (falls du Traefik als Reverse-Proxy nutzt)
       - "traefik.enable=false"
       # Portainer-Label für bessere Übersicht
-      - "com.docker.description=FIFA WM 2026 Turnierplan"
+      - "com.docker.description=KSC Fan Dashboard (2. Bundesliga)"
     logging:
       driver: json-file
       options:

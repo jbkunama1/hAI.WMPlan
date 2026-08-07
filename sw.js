@@ -1,7 +1,7 @@
 'use strict';
 
 // Cache-Version – bei Änderungen hochzählen → erzwingt Update
-const CACHE = 'wm2026-v1';
+const CACHE = 'ksc-v1';
 
 // Alle statischen Assets die beim Install gecacht werden
 const PRECACHE = [
@@ -9,9 +9,9 @@ const PRECACHE = [
   '/index.html',
   '/style.css',
   '/app.js',
+  '/data/ksc-data.js',
   '/logo.png',
   '/manifest.webmanifest',
-  'https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css',
 ];
 
 // Install: alle Assets vorab cachen
@@ -35,14 +35,13 @@ self.addEventListener('activate', event => {
 });
 
 // Fetch-Strategie:
-// - API-Calls (worldcup26.ir) → immer Network-First, kein Caching
-// - flag-icons CDN → Cache-First (ändert sich nie bei fixierter Version)
+// - API-Calls (openligadb.de) → immer Network-First, kein Caching
 // - alle lokalen Assets → Cache-First mit Network-Fallback
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
   // API immer frisch holen
-  if (url.hostname === 'worldcup26.ir') {
+  if (url.hostname.includes('openligadb.de')) {
     event.respondWith(fetch(event.request).catch(() => new Response('', { status: 503 })));
     return;
   }
