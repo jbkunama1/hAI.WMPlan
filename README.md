@@ -1,5 +1,9 @@
 # 🔵 KSC – Fan Dashboard
 
+<a href="https://www.buymeacoffee.com/highfish">
+<img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174">
+</a>
+
 <p align="center">
   <img src="logo.png" alt="KSC Logo" width="180">
 </p>
@@ -89,3 +93,4 @@ MIT License — frei verwendbar, veränderbar, weitergabe erlaubt.
 <p align="center">
   Made with 🔵 · 🤖 · ❤️ für den Karlsruher SC
 </p>
+
