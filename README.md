@@ -1,4 +1,9 @@
 # 🔵 KSC – Fan Dashboard
+[![Status](https://img.shields.io/badge/status-active-brightgreen?style=for-the-badge)](https://github.com/jbkunama1/hAI.WMPlan)
+[![JavaScript](https://img.shields.io/badge/JavaScript-Vanilla-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://github.com/jbkunama1/hAI.WMPlan)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-ready-0f766e?style=for-the-badge&logo=githubpages&logoColor=white)](https://github.com/jbkunama1/hAI.WMPlan)
+[![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
+
 
 
 
